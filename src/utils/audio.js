@@ -45,6 +45,7 @@ export function resumeAudio() {
 // Player shoot sound - quick blip
 export function playShoot() {
   if (!audioContext) return;
+  if (!window.VIBE_SETTINGS?.sfxEnabled) return;
 
   const osc = audioContext.createOscillator();
   const gain = audioContext.createGain();
@@ -66,6 +67,7 @@ export function playShoot() {
 // Enemy hit sound - thud
 export function playHit() {
   if (!audioContext) return;
+  if (!window.VIBE_SETTINGS?.sfxEnabled) return;
 
   const osc = audioContext.createOscillator();
   const gain = audioContext.createGain();
@@ -87,6 +89,7 @@ export function playHit() {
 // Enemy death sound - explosion
 export function playEnemyDeath() {
   if (!audioContext) return;
+  if (!window.VIBE_SETTINGS?.sfxEnabled) return;
 
   // Noise burst for explosion
   const bufferSize = audioContext.sampleRate * 0.2;
@@ -119,6 +122,7 @@ export function playEnemyDeath() {
 // Boss death - big explosion
 export function playBossDeath() {
   if (!audioContext) return;
+  if (!window.VIBE_SETTINGS?.sfxEnabled) return;
 
   // Multiple layered explosions
   for (let i = 0; i < 3; i++) {
@@ -155,6 +159,7 @@ export function playBossDeath() {
 // Player damage sound
 export function playPlayerHit() {
   if (!audioContext) return;
+  if (!window.VIBE_SETTINGS?.sfxEnabled) return;
 
   const osc = audioContext.createOscillator();
   const gain = audioContext.createGain();
@@ -177,6 +182,7 @@ export function playPlayerHit() {
 // Level up fanfare
 export function playLevelUp() {
   if (!audioContext) return;
+  if (!window.VIBE_SETTINGS?.sfxEnabled) return;
 
   const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
 
@@ -203,6 +209,7 @@ export function playLevelUp() {
 // Weapon pickup sound
 export function playWeaponPickup() {
   if (!audioContext) return;
+  if (!window.VIBE_SETTINGS?.sfxEnabled) return;
 
   const osc = audioContext.createOscillator();
   const gain = audioContext.createGain();
@@ -225,6 +232,7 @@ export function playWeaponPickup() {
 // Evolution sound - epic!
 export function playEvolution() {
   if (!audioContext) return;
+  if (!window.VIBE_SETTINGS?.sfxEnabled) return;
 
   // Ascending arpeggio
   const notes = [261.63, 329.63, 392, 523.25, 659.25, 783.99, 1046.50];
@@ -258,6 +266,7 @@ export function playEvolution() {
 // XP gain - subtle blip
 export function playXPGain() {
   if (!audioContext) return;
+  if (!window.VIBE_SETTINGS?.sfxEnabled) return;
 
   const osc = audioContext.createOscillator();
   const gain = audioContext.createGain();
@@ -279,6 +288,7 @@ export function playXPGain() {
 // Wave complete sound
 export function playWaveComplete() {
   if (!audioContext) return;
+  if (!window.VIBE_SETTINGS?.sfxEnabled) return;
 
   const notes = [392, 523.25, 659.25]; // G4, C5, E5
 
@@ -305,6 +315,7 @@ export function playWaveComplete() {
 // Boss spawn warning
 export function playBossWarning() {
   if (!audioContext) return;
+  if (!window.VIBE_SETTINGS?.sfxEnabled) return;
 
   // Low rumble + warning beeps
   for (let i = 0; i < 3; i++) {
@@ -330,6 +341,7 @@ export function playBossWarning() {
 // rm -rf nuke sound
 export function playNuke() {
   if (!audioContext) return;
+  if (!window.VIBE_SETTINGS?.sfxEnabled) return;
 
   // Rising tone into massive explosion
   const osc = audioContext.createOscillator();
@@ -358,6 +370,7 @@ export function playNuke() {
 // Magnet sound
 export function playMagnet() {
   if (!audioContext) return;
+  if (!window.VIBE_SETTINGS?.sfxEnabled) return;
 
   const osc = audioContext.createOscillator();
   const gain = audioContext.createGain();

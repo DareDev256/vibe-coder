@@ -1630,13 +1630,13 @@ export default class ArenaScene extends Phaser.Scene {
     this.pauseMenu.add(waveInfo);
 
     // Menu options
-    this.pauseMenuOptions = ['RESUME', 'RESTART', 'QUIT TO TITLE'];
+    this.pauseMenuOptions = ['RESUME', 'SETTINGS', 'RESTART', 'QUIT TO TITLE'];
     this.pauseMenuTexts = [];
 
     this.pauseMenuOptions.forEach((option, index) => {
-      const text = this.add.text(0, -20 + index * 50, option, {
+      const text = this.add.text(0, -30 + index * 40, option, {
         fontFamily: 'monospace',
-        fontSize: '24px',
+        fontSize: '20px',
         color: index === 0 ? '#00ffff' : '#666666',
         fontStyle: index === 0 ? 'bold' : 'normal'
       }).setOrigin(0.5);
@@ -1645,9 +1645,9 @@ export default class ArenaScene extends Phaser.Scene {
     });
 
     // Selector
-    this.pauseSelector = this.add.text(-100, -20, '>', {
+    this.pauseSelector = this.add.text(-100, -30, '>', {
       fontFamily: 'monospace',
-      fontSize: '24px',
+      fontSize: '20px',
       color: '#00ffff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
@@ -1698,10 +1698,12 @@ export default class ArenaScene extends Phaser.Scene {
     });
 
     // Move selector
-    this.pauseSelector.setY(-20 + this.pauseSelectedOption * 50);
+    this.pauseSelector.setY(-30 + this.pauseSelectedOption * 40);
 
-    // Sound
-    Audio.playXPGain();
+    // Sound - respect SFX setting
+    if (window.VIBE_SETTINGS?.sfxEnabled) {
+      Audio.playXPGain();
+    }
   }
 
   selectPauseOption() {
@@ -1712,18 +1714,121 @@ export default class ArenaScene extends Phaser.Scene {
         this.resumeGame();
         break;
 
-      case 1: // RESTART
-        Audio.playWeaponPickup();
+      case 1: // SETTINGS
+        this.showPauseSettings();
+        break;
+
+      case 2: // RESTART
+        if (window.VIBE_SETTINGS?.sfxEnabled) Audio.playWeaponPickup();
         this.destroyPauseMenu();
         this.restartGame();
         break;
 
-      case 2: // QUIT TO TITLE
-        Audio.playWeaponPickup();
+      case 3: // QUIT TO TITLE
+        if (window.VIBE_SETTINGS?.sfxEnabled) Audio.playWeaponPickup();
         this.destroyPauseMenu();
         this.quitToTitle();
         break;
     }
+  }
+
+  showPauseSettings() {
+    // Simple settings toggle in pause menu
+    const settings = window.VIBE_SETTINGS;
+
+    // Create settings overlay
+    const settingsOverlay = this.add.container(0, 0);
+    settingsOverlay.setDepth(1001);
+    this.pauseMenu.add(settingsOverlay);
+
+    // Background
+    const bg = this.add.rectangle(0, 0, 350, 250, 0x000000, 0.95);
+    bg.setStrokeStyle(2, 0x00ffff);
+    settingsOverlay.add(bg);
+
+    const title = this.add.text(0, -100, 'SETTINGS', {
+      fontFamily: 'monospace',
+      fontSize: '20px',
+      color: '#00ffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    settingsOverlay.add(title);
+
+    // Settings display
+    const settingsItems = [
+      { key: 'musicEnabled', label: 'MUSIC' },
+      { key: 'sfxEnabled', label: 'SOUND FX' },
+      { key: 'autoMove', label: 'AUTO-MOVE' }
+    ];
+
+    let selectedSetting = 0;
+    const settingTexts = [];
+
+    settingsItems.forEach((item, index) => {
+      const value = settings[item.key] ? 'ON' : 'OFF';
+      const text = this.add.text(0, -50 + index * 35, `${item.label}: [${value}]`, {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: index === 0 ? '#00ffff' : '#888888'
+      }).setOrigin(0.5);
+      settingsOverlay.add(text);
+      settingTexts.push({ text, item });
+    });
+
+    const hint = this.add.text(0, 80, 'UP/DOWN: Select | ENTER: Toggle | ESC: Back', {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#666666'
+    }).setOrigin(0.5);
+    settingsOverlay.add(hint);
+
+    // Update display
+    const updateSettingsDisplay = () => {
+      settingTexts.forEach((st, index) => {
+        const value = settings[st.item.key] ? 'ON' : 'OFF';
+        st.text.setText(`${st.item.label}: [${value}]`);
+        st.text.setColor(index === selectedSetting ? '#00ffff' : '#888888');
+      });
+    };
+
+    // Input handlers
+    const settingUp = () => {
+      selectedSetting = (selectedSetting - 1 + settingsItems.length) % settingsItems.length;
+      updateSettingsDisplay();
+    };
+
+    const settingDown = () => {
+      selectedSetting = (selectedSetting + 1) % settingsItems.length;
+      updateSettingsDisplay();
+    };
+
+    const settingToggle = () => {
+      const key = settingsItems[selectedSetting].key;
+      settings.toggle(key);
+      if (key === 'musicEnabled') {
+        Audio.toggleMusic();
+      }
+      updateSettingsDisplay();
+    };
+
+    const closeSettings = () => {
+      this.input.keyboard.off('keydown-UP', settingUp);
+      this.input.keyboard.off('keydown-DOWN', settingDown);
+      this.input.keyboard.off('keydown-W', settingUp);
+      this.input.keyboard.off('keydown-S', settingDown);
+      this.input.keyboard.off('keydown-ENTER', settingToggle);
+      this.input.keyboard.off('keydown-SPACE', settingToggle);
+      this.input.keyboard.off('keydown-ESC', closeSettings);
+      settingsOverlay.destroy();
+    };
+
+    this.input.keyboard.on('keydown-UP', settingUp);
+    this.input.keyboard.on('keydown-DOWN', settingDown);
+    this.input.keyboard.on('keydown-W', settingUp);
+    this.input.keyboard.on('keydown-S', settingDown);
+    this.input.keyboard.on('keydown-ENTER', settingToggle);
+    this.input.keyboard.on('keydown-SPACE', settingToggle);
+    this.input.keyboard.on('keydown-ESC', closeSettings);
   }
 
   resumeGame() {

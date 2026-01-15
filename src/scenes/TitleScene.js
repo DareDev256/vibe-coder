@@ -307,6 +307,15 @@ export default class TitleScene extends Phaser.Scene {
     this.speechTimer = null;
     this.nearWarglaive = false;
 
+    // Title screen enemies (for defense demo)
+    this.titleEnemies = [];
+    this.lastEnemySpawn = 0;
+    this.enemySpawnInterval = 4000; // Spawn every 4 seconds
+    this.titleProjectiles = [];
+
+    // Start title screen defense
+    this.startTitleDefense();
+
     // Random quotes
     this.idleQuotes = [
       "Start game bro\nlets get coding",
@@ -321,20 +330,22 @@ export default class TitleScene extends Phaser.Scene {
     ];
 
     this.warglaiveQuotes = [
-      // Rawglaive puns (primary)
-      "RAWGLAIVE\nactivated",
-      "Raw's creation\nhits different",
-      "The RAWGLAIVE\nfeels illegal",
-      "Raw made this btw\n*absolute legend*",
-      "RAWWWW!!\nYou did it again",
-      "Shoutout Raw\nfor the drip",
-      "Raw's blade\nof destruction",
-      "Twin blades\nby Raw himself",
-      "0.01% drop rate\nRaw's masterpiece",
-      "*Raw would be proud*",
-      "The Rawglaive\ngoes crazy",
-      // Keep subtle Luu nod
-      "Luu a.k.a. Raw\nthe GOAT"
+      // Luu - artwork credit
+      "Artwork by Luu\n*absolute masterpiece*",
+      // DareDev256 - the almighty
+      "DareDev256...\nthe ALMIGHTY",
+      "ALL HAIL\nDareDev256",
+      "DareDev256\nblessed this game",
+      "DareDev256 is\nbuilt different",
+      // Raw references
+      "Can't wait to swing\nthe RAWGLAIVE",
+      "Raw mode\nACTIVATED",
+      "Raw's watching...\n*no pressure*",
+      // Claude
+      "Claude coded this\nwith me btw",
+      "Opus-powered\ngameplay",
+      // General hype
+      "0.01% drop rate\nworth it tho"
     ];
 
     // Coding activity quotes
@@ -695,6 +706,217 @@ export default class TitleScene extends Phaser.Scene {
 
     // Night (9pm - 12am)
     return Phaser.Utils.Array.GetRandom(this.nightQuotes);
+  }
+
+  startTitleDefense() {
+    // Spawn enemies periodically on title screen
+    this.time.addEvent({
+      delay: this.enemySpawnInterval,
+      callback: () => this.spawnTitleEnemy(),
+      loop: true
+    });
+
+    // Update loop for title defense
+    this.time.addEvent({
+      delay: 50, // 20fps update
+      callback: () => this.updateTitleDefense(),
+      loop: true
+    });
+
+    // Character auto-attacks nearby enemies
+    this.time.addEvent({
+      delay: 800, // Attack every 800ms
+      callback: () => this.titleAttack(),
+      loop: true
+    });
+  }
+
+  spawnTitleEnemy() {
+    // Don't spawn if menus are open
+    if (this.upgradeMenuOpen || this.weaponMenuOpen || this.settingsMenuOpen) return;
+
+    // Spawn from right side of screen
+    const x = 850;
+    const y = Phaser.Math.Between(420, 550);
+
+    // Create enemy sprite (use bug texture)
+    const enemy = this.add.sprite(x, y, 'bug');
+    enemy.setScale(1.5);
+    enemy.play('bug-walk');
+    enemy.setAlpha(0.8);
+    enemy.health = 1;
+    enemy.speed = Phaser.Math.Between(15, 30);
+
+    this.titleEnemies.push(enemy);
+
+    // Character reacts
+    if (Math.random() < 0.3) {
+      this.sayQuote(Phaser.Utils.Array.GetRandom([
+        "Incoming!",
+        "Not on my watch",
+        "Bug spotted!",
+        "Defending the code",
+        "*combat mode*"
+      ]));
+    }
+  }
+
+  updateTitleDefense() {
+    // Move enemies toward player
+    this.titleEnemies = this.titleEnemies.filter(enemy => {
+      if (!enemy.active) return false;
+
+      // Move toward player
+      const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.idlePlayer.x, this.idlePlayer.y);
+      enemy.x += Math.cos(angle) * enemy.speed * 0.05;
+      enemy.y += Math.sin(angle) * enemy.speed * 0.05;
+
+      // Face movement direction
+      enemy.setFlipX(Math.cos(angle) < 0);
+
+      // Remove if off screen left
+      if (enemy.x < -50) {
+        enemy.destroy();
+        return false;
+      }
+
+      return true;
+    });
+
+    // Update projectiles
+    this.titleProjectiles = this.titleProjectiles.filter(proj => {
+      if (!proj.active) return false;
+
+      // Move projectile
+      proj.x += proj.vx;
+      proj.y += proj.vy;
+
+      // Check collision with enemies
+      for (let i = this.titleEnemies.length - 1; i >= 0; i--) {
+        const enemy = this.titleEnemies[i];
+        if (!enemy.active) continue;
+
+        const dist = Phaser.Math.Distance.Between(proj.x, proj.y, enemy.x, enemy.y);
+        if (dist < 25) {
+          // Hit!
+          this.killTitleEnemy(enemy);
+          this.titleEnemies.splice(i, 1);
+          proj.destroy();
+          return false;
+        }
+      }
+
+      // Remove if off screen
+      if (proj.x < -20 || proj.x > 820 || proj.y < -20 || proj.y > 620) {
+        proj.destroy();
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  titleAttack() {
+    // Don't attack if menus are open or walking
+    if (this.upgradeMenuOpen || this.weaponMenuOpen || this.settingsMenuOpen) return;
+    if (this.charState === 'walking') return;
+
+    // Find nearest enemy
+    let nearestEnemy = null;
+    let nearestDist = 400; // Max attack range
+
+    this.titleEnemies.forEach(enemy => {
+      if (!enemy.active) return;
+      const dist = Phaser.Math.Distance.Between(this.idlePlayer.x, this.idlePlayer.y, enemy.x, enemy.y);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestEnemy = enemy;
+      }
+    });
+
+    if (nearestEnemy) {
+      // Face the enemy
+      this.idlePlayer.setFlipX(nearestEnemy.x < this.idlePlayer.x);
+
+      // Fire projectile
+      const angle = Phaser.Math.Angle.Between(
+        this.idlePlayer.x, this.idlePlayer.y,
+        nearestEnemy.x, nearestEnemy.y
+      );
+
+      const proj = this.add.rectangle(
+        this.idlePlayer.x + Math.cos(angle) * 20,
+        this.idlePlayer.y + Math.sin(angle) * 20,
+        12, 4, 0x00ffff
+      );
+      proj.setRotation(angle);
+      proj.vx = Math.cos(angle) * 8;
+      proj.vy = Math.sin(angle) * 8;
+
+      // Glow effect
+      proj.setAlpha(0.9);
+
+      this.titleProjectiles.push(proj);
+
+      // Play sound if SFX enabled
+      if (window.VIBE_SETTINGS?.sfxEnabled) {
+        Audio.playShoot();
+      }
+    }
+  }
+
+  killTitleEnemy(enemy) {
+    // Death effect
+    const x = enemy.x;
+    const y = enemy.y;
+
+    // Particles
+    for (let i = 0; i < 6; i++) {
+      const particle = this.add.circle(x, y, 3, 0x00ff00, 0.8);
+      const angle = (i / 6) * Math.PI * 2;
+      this.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * 30,
+        y: y + Math.sin(angle) * 30,
+        alpha: 0,
+        scale: 0.5,
+        duration: 400,
+        onComplete: () => particle.destroy()
+      });
+    }
+
+    // XP text
+    const xpText = this.add.text(x, y - 10, '+5 XP', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#00ff00'
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: xpText,
+      y: y - 40,
+      alpha: 0,
+      duration: 800,
+      onComplete: () => xpText.destroy()
+    });
+
+    enemy.destroy();
+
+    // Play sound if SFX enabled
+    if (window.VIBE_SETTINGS?.sfxEnabled) {
+      Audio.playHit();
+    }
+
+    // Occasionally react
+    if (Math.random() < 0.2) {
+      this.sayQuote(Phaser.Utils.Array.GetRandom([
+        "Got one!",
+        "Squashed!",
+        "DEBUG COMPLETE",
+        "Next?",
+        "*ez*"
+      ]));
+    }
   }
 
   setupInput() {
