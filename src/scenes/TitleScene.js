@@ -37,6 +37,9 @@ export default class TitleScene extends Phaser.Scene {
 
     // Floating code particles
     this.createCodeParticles();
+
+    // Idle character on title screen
+    this.createIdleCharacter();
   }
 
   createBackground() {
@@ -252,6 +255,225 @@ export default class TitleScene extends Phaser.Scene {
         }
       });
     }
+  }
+
+  createIdleCharacter() {
+    // Floating Warglaive decoration in bottom right
+    this.warglaiveDecor = this.add.sprite(680, 480, 'legendary-huntersWarglaive');
+    this.warglaiveDecor.setScale(2);
+    this.warglaiveDecor.setAlpha(0.9);
+
+    // Floating animation for warglaive
+    this.tweens.add({
+      targets: this.warglaiveDecor,
+      y: 470,
+      duration: 2000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    // Subtle glow effect
+    this.tweens.add({
+      targets: this.warglaiveDecor,
+      alpha: 0.6,
+      duration: 1500,
+      yoyo: true,
+      repeat: -1
+    });
+
+    // Slow rotation
+    this.tweens.add({
+      targets: this.warglaiveDecor,
+      angle: 360,
+      duration: 8000,
+      repeat: -1
+    });
+
+    // Player character
+    this.idlePlayer = this.add.sprite(150, 500, 'player');
+    this.idlePlayer.setScale(2);
+    this.idlePlayer.play('player-idle');
+
+    // Speech bubble (hidden initially)
+    this.speechBubble = this.add.graphics();
+    this.speechText = this.add.text(0, 0, '', {
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      color: '#000000',
+      align: 'center',
+      wordWrap: { width: 140 }
+    }).setOrigin(0.5);
+    this.speechBubble.setVisible(false);
+    this.speechText.setVisible(false);
+
+    // Character state
+    this.charState = 'idle';
+    this.charTarget = null;
+    this.speechTimer = null;
+    this.nearWarglaive = false;
+
+    // Random quotes
+    this.idleQuotes = [
+      "Start game bro\nlets get coding",
+      "...",
+      "*stretches*",
+      "Ready to debug\nsome bugs?",
+      "Ctrl+S everything",
+      "git push --force\njk jk",
+      "Bugs fear me",
+      "Coffee break?",
+      "npm install\n*infinite*"
+    ];
+
+    this.warglaiveQuotes = [
+      "Oh boy...",
+      "Luu a wild mfer",
+      "The creator's blade",
+      "0.01% btw",
+      "Twin blades of\ndestruction",
+      "*chef's kiss*",
+      "Legendary drip"
+    ];
+
+    // Start idle behavior loop
+    this.startIdleBehavior();
+  }
+
+  startIdleBehavior() {
+    // Random behavior every 3-8 seconds
+    this.time.addEvent({
+      delay: Phaser.Math.Between(3000, 6000),
+      callback: () => this.doRandomAction(),
+      loop: true
+    });
+
+    // Initial action after short delay
+    this.time.delayedCall(1500, () => this.doRandomAction());
+  }
+
+  doRandomAction() {
+    // Don't interrupt if menu is open
+    if (this.upgradeMenuOpen || this.weaponMenuOpen) return;
+
+    const action = Phaser.Math.Between(0, 10);
+
+    if (action < 3) {
+      // Walk to random position
+      this.walkTo(Phaser.Math.Between(80, 300), 500);
+    } else if (action < 5) {
+      // Walk toward warglaive
+      this.walkTo(600, 490, true);
+    } else if (action < 7) {
+      // Say random idle quote
+      this.sayQuote(Phaser.Utils.Array.GetRandom(this.idleQuotes));
+    } else {
+      // Just chill, play idle
+      this.idlePlayer.play('player-idle');
+    }
+  }
+
+  walkTo(targetX, targetY, goingToWarglaive = false) {
+    if (this.charState === 'walking') return;
+
+    this.charState = 'walking';
+    this.charTarget = { x: targetX, y: targetY };
+
+    // Face the right direction
+    const dx = targetX - this.idlePlayer.x;
+    this.idlePlayer.setFlipX(dx < 0);
+
+    // Play walk animation
+    this.idlePlayer.play('player-walk-side');
+
+    // Tween to target
+    this.tweens.add({
+      targets: this.idlePlayer,
+      x: targetX,
+      y: targetY,
+      duration: Math.abs(dx) * 8 + 500,
+      ease: 'Linear',
+      onComplete: () => {
+        this.charState = 'idle';
+        this.idlePlayer.play('player-idle');
+
+        // Check if near warglaive
+        const distToWarglaive = Phaser.Math.Distance.Between(
+          this.idlePlayer.x, this.idlePlayer.y,
+          this.warglaiveDecor.x, this.warglaiveDecor.y
+        );
+
+        if (distToWarglaive < 150 && goingToWarglaive) {
+          this.nearWarglaive = true;
+          // Face the warglaive
+          this.idlePlayer.setFlipX(false);
+          // Say warglaive quote
+          this.time.delayedCall(300, () => {
+            this.sayQuote(Phaser.Utils.Array.GetRandom(this.warglaiveQuotes));
+          });
+        } else {
+          this.nearWarglaive = false;
+        }
+      }
+    });
+  }
+
+  sayQuote(text) {
+    // Clear existing speech
+    if (this.speechTimer) {
+      this.speechTimer.remove();
+    }
+
+    // Position bubble above player
+    const bubbleX = this.idlePlayer.x;
+    const bubbleY = this.idlePlayer.y - 50;
+
+    // Draw speech bubble
+    this.speechBubble.clear();
+    this.speechBubble.fillStyle(0xffffff, 0.95);
+    this.speechBubble.lineStyle(2, 0x00ffff, 1);
+
+    // Bubble shape
+    const bubbleWidth = 150;
+    const bubbleHeight = 45;
+    this.speechBubble.fillRoundedRect(
+      bubbleX - bubbleWidth/2,
+      bubbleY - bubbleHeight/2,
+      bubbleWidth,
+      bubbleHeight,
+      8
+    );
+    this.speechBubble.strokeRoundedRect(
+      bubbleX - bubbleWidth/2,
+      bubbleY - bubbleHeight/2,
+      bubbleWidth,
+      bubbleHeight,
+      8
+    );
+
+    // Little triangle pointer
+    this.speechBubble.fillTriangle(
+      bubbleX - 8, bubbleY + bubbleHeight/2,
+      bubbleX + 8, bubbleY + bubbleHeight/2,
+      bubbleX, bubbleY + bubbleHeight/2 + 10
+    );
+    this.speechBubble.lineStyle(2, 0x00ffff, 1);
+    this.speechBubble.lineBetween(bubbleX - 8, bubbleY + bubbleHeight/2, bubbleX, bubbleY + bubbleHeight/2 + 10);
+    this.speechBubble.lineBetween(bubbleX + 8, bubbleY + bubbleHeight/2, bubbleX, bubbleY + bubbleHeight/2 + 10);
+
+    // Set text
+    this.speechText.setPosition(bubbleX, bubbleY);
+    this.speechText.setText(text);
+
+    // Show
+    this.speechBubble.setVisible(true);
+    this.speechText.setVisible(true);
+
+    // Hide after delay
+    this.speechTimer = this.time.delayedCall(3000, () => {
+      this.speechBubble.setVisible(false);
+      this.speechText.setVisible(false);
+    });
   }
 
   setupInput() {

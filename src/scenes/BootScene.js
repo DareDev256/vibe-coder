@@ -1570,50 +1570,102 @@ export default class BootScene extends Phaser.Scene {
     const g = this.make.graphics({ x: 0, y: 0, add: false });
     const size = 48;
 
-    // Based on reference image - dark curved warglaive silhouette
-    // The reference shows a black blade on blue background
-    // Curved shape with hook at top, handle at bottom
+    // Pixel-perfect recreation of reference Hunter's Warglaive
+    // Reference: curved hook blade top-left, handle bottom-right
+    // Dark black/charcoal coloring with pixel art style
 
-    // Main curved blade body - dark charcoal
-    g.fillStyle(0x1a1a1a, 1);
+    const px = (x, y, color = 0x1a1a1a) => {
+      g.fillStyle(color, 1);
+      g.fillRect(x, y, 2, 2);
+    };
 
-    // Upper curved hook part (the iconic curved blade)
-    g.beginPath();
-    g.moveTo(size/2 + 2, size/2 + 10);   // Handle top
-    g.lineTo(size/2 - 6, size/2 + 4);    // Curve inward
-    g.lineTo(size/2 - 14, size/2 - 8);   // Curve up and out
-    g.lineTo(size/2 - 10, size/2 - 16);  // Top tip hook
-    g.lineTo(size/2 - 4, size/2 - 12);   // Inner hook curve
-    g.lineTo(size/2 + 2, size/2 - 4);    // Back down
-    g.closePath();
-    g.fillPath();
+    // Main blade color - very dark charcoal
+    const dark = 0x1a1a1a;
+    const mid = 0x2a2a2a;
+    const light = 0x3a3a3a;
+    const outline = 0x0a0a0a;
 
-    // Lower blade extension
-    g.beginPath();
-    g.moveTo(size/2 + 2, size/2 + 10);   // Handle top
-    g.lineTo(size/2 + 8, size/2 + 6);    // Angle out
-    g.lineTo(size/2 + 16, size/2 + 14);  // Lower blade tip
-    g.lineTo(size/2 + 10, size/2 + 18);  // Lower edge
-    g.lineTo(size/2 + 4, size/2 + 14);   // Back to handle
-    g.closePath();
-    g.fillPath();
+    // Top hook curve (going up and left)
+    px(8, 4, outline);
+    px(10, 4, dark);
+    px(6, 6, outline);
+    px(8, 6, dark);
+    px(10, 6, dark);
+    px(12, 6, mid);
 
-    // Handle/grip - slightly lighter
-    g.fillStyle(0x2a2a2a, 1);
-    g.fillRect(size/2 - 1, size/2 + 8, 6, 10);
+    px(4, 8, outline);
+    px(6, 8, dark);
+    px(8, 8, dark);
+    px(10, 8, mid);
 
-    // Edge highlights - subtle metallic shine
-    g.lineStyle(1, 0x3a3a3a, 1);
-    g.lineBetween(size/2 - 14, size/2 - 8, size/2 - 10, size/2 - 16);
-    g.lineBetween(size/2 + 8, size/2 + 6, size/2 + 16, size/2 + 14);
+    px(4, 10, outline);
+    px(6, 10, dark);
+    px(8, 10, dark);
 
-    // Subtle dark outline for definition
-    g.lineStyle(1, 0x0a0a0a, 0.8);
-    g.beginPath();
-    g.moveTo(size/2 - 6, size/2 + 4);
-    g.lineTo(size/2 - 14, size/2 - 8);
-    g.lineTo(size/2 - 10, size/2 - 16);
-    g.strokePath();
+    px(6, 12, outline);
+    px(8, 12, dark);
+    px(10, 12, dark);
+
+    // Middle blade section (diagonal)
+    px(10, 14, outline);
+    px(12, 14, dark);
+    px(14, 14, dark);
+
+    px(14, 16, outline);
+    px(16, 16, dark);
+    px(18, 16, dark);
+
+    px(18, 18, outline);
+    px(20, 18, dark);
+    px(22, 18, mid);
+
+    // Handle section (going down-right)
+    px(22, 20, outline);
+    px(24, 20, dark);
+    px(26, 20, mid);
+
+    px(26, 22, outline);
+    px(28, 22, dark);
+    px(30, 22, mid);
+
+    px(28, 24, outline);
+    px(30, 24, dark);
+    px(32, 24, mid);
+
+    px(30, 26, outline);
+    px(32, 26, dark);
+    px(34, 26, mid);
+
+    // Lower hook/blade extension
+    px(32, 28, outline);
+    px(34, 28, dark);
+    px(36, 28, dark);
+
+    px(34, 30, outline);
+    px(36, 30, dark);
+    px(38, 30, mid);
+
+    px(36, 32, outline);
+    px(38, 32, dark);
+    px(40, 32, light);
+
+    px(38, 34, outline);
+    px(40, 34, dark);
+
+    px(40, 36, outline);
+    px(42, 36, mid);
+
+    // Inner curve details
+    px(12, 10, light);
+    px(14, 12, mid);
+    px(16, 14, mid);
+    px(20, 16, light);
+    px(24, 18, light);
+
+    // Add some pixel highlights for that pixel art look
+    px(8, 4, light);
+    px(6, 10, light);
+    px(38, 32, light);
 
     g.generateTexture('legendary-huntersWarglaive', size, size);
     g.destroy();
