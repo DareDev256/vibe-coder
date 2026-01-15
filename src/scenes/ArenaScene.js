@@ -1,0 +1,2237 @@
+import Phaser from 'phaser';
+import * as Audio from '../utils/audio.js';
+
+export default class ArenaScene extends Phaser.Scene {
+  constructor() {
+    super({ key: 'ArenaScene' });
+
+    // Game state
+    this.player = null;
+    this.enemies = null;
+    this.projectiles = null;
+    this.weaponDrops = null;
+    this.orbitals = null;
+    this.cursors = null;
+    this.wasd = null;
+
+    // Player stats (scale with level) - BUFFED for idle gameplay
+    this.baseStats = {
+      speed: 200,
+      attackRate: 300, // ms between attacks (faster!)
+      attackDamage: 25, // hits harder
+      maxHealth: 200   // chonky boi
+    };
+
+    // Invincibility after hit
+    this.invincible = false;
+
+    // Wave system
+    this.waveNumber = 1;
+    this.enemiesPerWave = 5;
+    this.spawnTimer = null;
+    this.waveTimer = null;
+
+    // Combat
+    this.lastAttackTime = 0;
+
+    // Current weapon (default: basic)
+    this.currentWeapon = {
+      type: 'basic',
+      duration: Infinity // basic never expires
+    };
+
+    // Weapon definitions
+    this.weaponTypes = {
+      basic: { attackRate: 1, damage: 1, projectiles: 1, pierce: false, color: 0x00ffff },
+      spread: { attackRate: 1, damage: 0.7, projectiles: 5, pierce: false, color: 0xff9900 },
+      pierce: { attackRate: 0.8, damage: 1.5, projectiles: 1, pierce: true, color: 0x0099ff },
+      orbital: { attackRate: 0, damage: 2, projectiles: 0, pierce: true, color: 0xaa44ff },
+      rapid: { attackRate: 3, damage: 0.5, projectiles: 1, pierce: false, color: 0xffcc00 },
+      // Rare weapons - special effects
+      rmrf: { attackRate: 0, damage: 0, projectiles: 0, pierce: false, color: 0xff0000, special: 'clearAll' },
+      sudo: { attackRate: 2, damage: 3, projectiles: 1, pierce: true, color: 0xffd700, special: 'godMode' },
+      forkbomb: { attackRate: 1.5, damage: 0.6, projectiles: 3, pierce: false, color: 0xff00ff, special: 'fork' }
+    };
+
+    // Boss definitions
+    this.bossTypes = {
+      'boss-stackoverflow': {
+        name: 'STACK OVERFLOW',
+        health: 2000,
+        speed: 30,
+        damage: 15,
+        xpValue: 500,
+        wave: 20,
+        color: 0x00ff00,
+        ability: 'spawnMinions'
+      },
+      'boss-nullpointer': {
+        name: 'NULL POINTER',
+        health: 3500,
+        speed: 60,
+        damage: 20,
+        xpValue: 1000,
+        wave: 40,
+        color: 0xff00ff,
+        ability: 'teleport'
+      },
+      'boss-memoryleakprime': {
+        name: 'MEMORY LEAK PRIME',
+        health: 5000,
+        speed: 20,
+        damage: 25,
+        xpValue: 1500,
+        wave: 60,
+        color: 0xaa00ff,
+        ability: 'split'
+      },
+      'boss-kernelpanic': {
+        name: 'KERNEL PANIC',
+        health: 8000,
+        speed: 40,
+        damage: 35,
+        xpValue: 3000,
+        wave: 80,
+        color: 0xff0000,
+        ability: 'rage'
+      }
+    };
+
+    // Stage definitions
+    this.stages = [
+      { name: 'DEBUG ZONE', startWave: 1, bgColor: 0x0a0a1a, gridColor: 0x00ffff, nodeColor: 0x00ffff },
+      { name: 'MEMORY BANKS', startWave: 40, bgColor: 0x0a001a, gridColor: 0xaa00ff, nodeColor: 0xff00ff },
+      { name: 'NETWORK LAYER', startWave: 80, bgColor: 0x001a0a, gridColor: 0x00ff00, nodeColor: 0x00ff88 },
+      { name: 'KERNEL SPACE', startWave: 120, bgColor: 0x1a0a0a, gridColor: 0xff0000, nodeColor: 0xff4400 }
+    ];
+
+    // Current stage
+    this.currentStage = 0;
+
+    // Boss state
+    this.currentBoss = null;
+    this.bossHealthBar = null;
+    this.bossNameText = null;
+
+    // New enemy types with unique behaviors
+    this.enemyTypes = {
+      bug: { health: 15, speed: 40, damage: 3, xpValue: 5, behavior: 'chase' },
+      glitch: { health: 30, speed: 70, damage: 5, xpValue: 15, behavior: 'chase' },
+      'memory-leak': { health: 60, speed: 25, damage: 10, xpValue: 30, behavior: 'chase' },
+      'syntax-error': { health: 12, speed: 100, damage: 2, xpValue: 10, behavior: 'teleport', teleportCooldown: 3000 },
+      'infinite-loop': { health: 40, speed: 50, damage: 4, xpValue: 20, behavior: 'orbit', orbitRadius: 120 },
+      'race-condition': { health: 25, speed: 60, damage: 6, xpValue: 25, behavior: 'erratic', speedVariance: 80 }
+    };
+
+    // Mini-boss definitions (appear at waves 10, 30, 50...)
+    this.miniBossTypes = {
+      'miniboss-deadlock': {
+        name: 'DEADLOCK',
+        health: 500,
+        speed: 35,
+        damage: 12,
+        xpValue: 150,
+        color: 0xff6600,
+        ability: 'freeze'
+      }
+    };
+
+    // Weapon evolution recipes (combine 2 weapons to evolve)
+    this.evolutionRecipes = {
+      'spread+pierce': { result: 'laserbeam', name: 'LASER BEAM', attackRate: 1.2, damage: 2.5, projectiles: 3, pierce: true, color: 0xff0088 },
+      'orbital+rapid': { result: 'plasmaorb', name: 'PLASMA ORB', attackRate: 0, damage: 3, projectiles: 0, pierce: true, color: 0x00ffaa, orbitalCount: 5 },
+      'pierce+rapid': { result: 'chainlightning', name: 'CHAIN LIGHTNING', attackRate: 2.5, damage: 1.8, projectiles: 1, pierce: false, color: 0x00aaff, chains: 3 }
+    };
+
+    // Collected weapon types for evolution
+    this.collectedWeapons = new Set(['basic']);
+
+    // High score tracking
+    this.highScore = parseInt(localStorage.getItem('vibeCoderHighScore') || '0');
+    this.highWave = parseInt(localStorage.getItem('vibeCoderHighWave') || '0');
+
+    // Pause state
+    this.isPaused = false;
+    this.pauseMenu = null;
+    this.pauseSelectedOption = 0;
+  }
+
+  create() {
+    // Create tiled background
+    this.createBackground();
+
+    // Create player
+    this.createPlayer();
+
+    // Create enemy group
+    this.enemies = this.physics.add.group();
+
+    // Create projectile group
+    this.projectiles = this.physics.add.group();
+
+    // Create weapon drops group
+    this.weaponDrops = this.physics.add.group();
+
+    // Create orbital weapons group (circle around player)
+    this.orbitals = this.add.group();
+
+    // Setup input
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.wasd = this.input.keyboard.addKeys({
+      up: Phaser.Input.Keyboard.KeyCodes.W,
+      down: Phaser.Input.Keyboard.KeyCodes.S,
+      left: Phaser.Input.Keyboard.KeyCodes.A,
+      right: Phaser.Input.Keyboard.KeyCodes.D
+    });
+
+    // Setup collisions
+    this.physics.add.overlap(this.projectiles, this.enemies, this.hitEnemy, null, this);
+    this.physics.add.overlap(this.player, this.enemies, this.playerHit, null, this);
+    this.physics.add.overlap(this.player, this.weaponDrops, this.pickupWeapon, null, this);
+
+    // Create HUD
+    this.createHUD();
+
+    // Start spawning enemies
+    this.startWave();
+
+    // Listen for XP events from hooks
+    window.addEventListener('xpgained', (e) => this.showXPPopup(e.detail.amount));
+    window.addEventListener('levelup', (e) => this.showLevelUp(e.detail.level));
+
+    // For testing - press SPACE to simulate XP gain
+    this.input.keyboard.on('keydown-SPACE', () => {
+      window.VIBE_CODER.addXP(10);
+    });
+
+    // Initialize audio on first interaction
+    this.input.on('pointerdown', () => {
+      Audio.initAudio();
+      Audio.resumeAudio();
+    });
+    this.input.keyboard.on('keydown', () => {
+      Audio.initAudio();
+      Audio.resumeAudio();
+    });
+
+    // Music toggle - press M
+    this.input.keyboard.on('keydown-M', () => {
+      Audio.initAudio();
+      const isPlaying = Audio.toggleMusic();
+      this.showMusicStatus(isPlaying);
+    });
+
+    // Pause toggle - press ESC or P
+    this.input.keyboard.on('keydown-ESC', () => this.togglePause());
+    this.input.keyboard.on('keydown-P', () => this.togglePause());
+
+    console.log('Arena ready! WASD to move, auto-attack enabled. Press SPACE for XP. M for music. ESC/P to pause.');
+  }
+
+  createBackground() {
+    // Clear existing background elements
+    if (this.bgGraphics) this.bgGraphics.destroy();
+    if (this.bgParticles) {
+      this.bgParticles.forEach(p => p.destroy());
+    }
+    if (this.dataStreams) {
+      this.dataStreams.forEach(s => s.destroy());
+    }
+    this.bgParticles = [];
+    this.dataStreams = [];
+
+    const stage = this.stages[this.currentStage];
+    const graphics = this.add.graphics();
+    this.bgGraphics = graphics;
+
+    // === BASE LAYER: Gradient background ===
+    for (let y = 0; y < 600; y += 4) {
+      const alpha = 0.8 + (y / 600) * 0.2;
+      graphics.fillStyle(stage.bgColor, alpha);
+      graphics.fillRect(0, y, 800, 4);
+    }
+
+    // === CIRCUIT BOARD PATTERN ===
+    graphics.lineStyle(1, stage.gridColor, 0.15);
+
+    // Main grid
+    for (let x = 0; x < 800; x += 40) {
+      graphics.lineBetween(x, 0, x, 600);
+    }
+    for (let y = 0; y < 600; y += 40) {
+      graphics.lineBetween(0, y, 800, y);
+    }
+
+    // Circuit traces - horizontal
+    graphics.lineStyle(2, stage.gridColor, 0.25);
+    for (let y = 20; y < 600; y += 80) {
+      const startX = Phaser.Math.Between(0, 100);
+      const endX = Phaser.Math.Between(700, 800);
+      graphics.lineBetween(startX, y, endX, y);
+
+      // Add corner turns
+      if (Math.random() > 0.5) {
+        const turnX = Phaser.Math.Between(startX + 50, endX - 50);
+        const turnY = y + (Math.random() > 0.5 ? 40 : -40);
+        graphics.lineBetween(turnX, y, turnX, turnY);
+      }
+    }
+
+    // Circuit nodes with glowing effect
+    const nodePositions = [];
+    for (let x = 40; x < 800; x += 80) {
+      for (let y = 40; y < 600; y += 80) {
+        if (Math.random() > 0.6) {
+          nodePositions.push({ x, y });
+
+          // Outer glow
+          graphics.fillStyle(stage.nodeColor, 0.1);
+          graphics.fillCircle(x, y, 12);
+          graphics.fillStyle(stage.nodeColor, 0.2);
+          graphics.fillCircle(x, y, 8);
+          // Inner node
+          graphics.fillStyle(stage.nodeColor, 0.5);
+          graphics.fillCircle(x, y, 4);
+          // Bright center
+          graphics.fillStyle(0xffffff, 0.3);
+          graphics.fillCircle(x, y, 2);
+        }
+      }
+    }
+
+    // Connect some nodes with bright lines
+    graphics.lineStyle(1, stage.nodeColor, 0.3);
+    for (let i = 0; i < nodePositions.length - 1; i++) {
+      if (Math.random() > 0.7) {
+        const n1 = nodePositions[i];
+        const n2 = nodePositions[Math.min(i + 1, nodePositions.length - 1)];
+        // L-shaped connection
+        graphics.lineBetween(n1.x, n1.y, n2.x, n1.y);
+        graphics.lineBetween(n2.x, n1.y, n2.x, n2.y);
+      }
+    }
+
+    // === DATA BLOCKS (like memory addresses) ===
+    graphics.fillStyle(stage.gridColor, 0.08);
+    for (let i = 0; i < 15; i++) {
+      const x = Phaser.Math.Between(20, 760);
+      const y = Phaser.Math.Between(20, 560);
+      const w = Phaser.Math.Between(30, 80);
+      const h = Phaser.Math.Between(15, 30);
+      graphics.fillRect(x, y, w, h);
+
+      // Binary/hex text effect (just lines)
+      graphics.lineStyle(1, stage.gridColor, 0.15);
+      for (let lx = x + 4; lx < x + w - 4; lx += 6) {
+        if (Math.random() > 0.3) {
+          graphics.lineBetween(lx, y + h/2 - 3, lx + 3, y + h/2 - 3);
+        }
+        if (Math.random() > 0.3) {
+          graphics.lineBetween(lx, y + h/2 + 3, lx + 3, y + h/2 + 3);
+        }
+      }
+    }
+
+    // === CORNER DECORATIONS ===
+    graphics.lineStyle(2, stage.nodeColor, 0.4);
+    // Top-left corner bracket
+    graphics.lineBetween(10, 10, 10, 50);
+    graphics.lineBetween(10, 10, 50, 10);
+    // Top-right
+    graphics.lineBetween(790, 10, 790, 50);
+    graphics.lineBetween(790, 10, 750, 10);
+    // Bottom-left
+    graphics.lineBetween(10, 590, 10, 550);
+    graphics.lineBetween(10, 590, 50, 590);
+    // Bottom-right
+    graphics.lineBetween(790, 590, 790, 550);
+    graphics.lineBetween(790, 590, 750, 590);
+
+    graphics.setDepth(-10);
+
+    // === ANIMATED FLOATING PARTICLES ===
+    for (let i = 0; i < 20; i++) {
+      const particle = this.add.circle(
+        Phaser.Math.Between(0, 800),
+        Phaser.Math.Between(0, 600),
+        Phaser.Math.Between(1, 3),
+        stage.nodeColor,
+        Phaser.Math.FloatBetween(0.1, 0.4)
+      );
+      particle.setDepth(-5);
+      this.bgParticles.push(particle);
+
+      // Floating animation
+      this.tweens.add({
+        targets: particle,
+        y: particle.y + Phaser.Math.Between(-100, 100),
+        x: particle.x + Phaser.Math.Between(-50, 50),
+        alpha: { from: particle.alpha, to: 0 },
+        duration: Phaser.Math.Between(3000, 8000),
+        ease: 'Sine.easeInOut',
+        repeat: -1,
+        yoyo: true
+      });
+    }
+
+    // === ANIMATED DATA STREAMS (Matrix-style) ===
+    for (let i = 0; i < 5; i++) {
+      this.createDataStream(stage);
+    }
+  }
+
+  createDataStream(stage) {
+    const x = Phaser.Math.Between(50, 750);
+    const streamGroup = this.add.group();
+
+    // Create falling characters
+    const chars = '01アイウエオカキクケコ';
+    const charCount = Phaser.Math.Between(5, 12);
+
+    for (let i = 0; i < charCount; i++) {
+      const char = this.add.text(x, -20 - (i * 20), chars[Phaser.Math.Between(0, chars.length - 1)], {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: `#${stage.nodeColor.toString(16).padStart(6, '0')}`
+      }).setAlpha(0.1 + (i / charCount) * 0.4);
+      char.setDepth(-5);
+      streamGroup.add(char);
+    }
+
+    // Animate the stream falling
+    this.tweens.add({
+      targets: streamGroup.getChildren(),
+      y: '+=700',
+      duration: Phaser.Math.Between(4000, 8000),
+      ease: 'Linear',
+      onComplete: () => {
+        streamGroup.destroy(true);
+        // Respawn a new stream
+        if (this.scene.isActive()) {
+          this.createDataStream(stage);
+        }
+      }
+    });
+
+    if (!this.dataStreams) this.dataStreams = [];
+    this.dataStreams.push(streamGroup);
+  }
+
+  checkStageChange() {
+    // Check if we should transition to a new stage
+    for (let i = this.stages.length - 1; i >= 0; i--) {
+      if (this.waveNumber >= this.stages[i].startWave && i > this.currentStage) {
+        this.currentStage = i;
+        this.showStageTransition();
+        this.createBackground();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  showStageTransition() {
+    const stage = this.stages[this.currentStage];
+
+    // Flash screen
+    this.cameras.main.flash(500, 255, 255, 255);
+
+    // Big stage announcement
+    const stageText = this.add.text(400, 200, `ENTERING\n${stage.name}`, {
+      fontFamily: 'monospace',
+      fontSize: '36px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      align: 'center',
+      stroke: '#000000',
+      strokeThickness: 6
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: stageText,
+      scale: 1.3,
+      alpha: 0,
+      duration: 3000,
+      ease: 'Power2',
+      onComplete: () => stageText.destroy()
+    });
+  }
+
+  createPlayer() {
+    // Create player at center
+    this.player = this.physics.add.sprite(400, 300, 'player');
+    this.player.setCollideWorldBounds(true);
+
+    // Player health
+    this.player.health = this.getStats().maxHealth;
+    this.player.maxHealth = this.getStats().maxHealth;
+  }
+
+  getStats() {
+    // Stats scale with level - more aggressive scaling
+    const level = window.VIBE_CODER.level;
+    return {
+      speed: this.baseStats.speed + (level * 8),
+      attackRate: Math.max(100, this.baseStats.attackRate - (level * 15)), // gets FAST
+      attackDamage: this.baseStats.attackDamage + (level * 5), // hits HARD
+      maxHealth: this.baseStats.maxHealth + (level * 20) // gets BEEFY
+    };
+  }
+
+  createHUD() {
+    // XP Bar background
+    this.xpBarBg = this.add.graphics();
+    this.xpBarBg.fillStyle(0x333333, 0.8);
+    this.xpBarBg.fillRect(10, 10, 200, 20);
+
+    // XP Bar fill
+    this.xpBar = this.add.graphics();
+
+    // Health bar background
+    this.healthBarBg = this.add.graphics();
+    this.healthBarBg.fillStyle(0x333333, 0.8);
+    this.healthBarBg.fillRect(10, 35, 200, 15);
+
+    // Health bar fill
+    this.healthBar = this.add.graphics();
+
+    // Level text
+    this.levelText = this.add.text(10, 55, 'LVL 1', {
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      color: '#00ffff',
+      fontStyle: 'bold'
+    });
+
+    // XP text
+    this.xpText = this.add.text(10, 75, 'XP: 0 / 100', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#aaaaaa'
+    });
+
+    // Wave text
+    this.waveText = this.add.text(700, 10, 'WAVE 1', {
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      color: '#ff00ff',
+      fontStyle: 'bold'
+    }).setOrigin(1, 0);
+
+    // Kills text
+    this.killsText = this.add.text(700, 30, 'KILLS: 0', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#aaaaaa'
+    }).setOrigin(1, 0);
+
+    // Current weapon indicator
+    this.weaponText = this.add.text(10, 95, 'WEAPON: BASIC', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#00ffff'
+    });
+
+    // Connection status
+    this.connectionText = this.add.text(400, 580, '⚡ CONNECTING... | M = MUSIC', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#ffff00'
+    }).setOrigin(0.5);
+
+    // Listen for connection events
+    window.addEventListener('xpserver-connected', () => {
+      this.connectionText.setText('🟢 LIVE - XP FROM CODING | M = MUSIC');
+      this.connectionText.setColor('#00ff00');
+    });
+
+    window.addEventListener('xpserver-disconnected', () => {
+      this.connectionText.setText('🔴 OFFLINE - SPACE FOR XP | M = MUSIC');
+      this.connectionText.setColor('#ff6666');
+    });
+
+    // Stage text
+    this.stageText = this.add.text(700, 50, 'STAGE: DEBUG ZONE', {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#00ffff'
+    }).setOrigin(1, 0);
+
+    // High score display
+    this.highScoreText = this.add.text(700, 70, `HI-WAVE: ${this.highWave}`, {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#ffd700'
+    }).setOrigin(1, 0);
+
+    // Collected weapons display (for evolution tracking)
+    this.weaponsCollectedText = this.add.text(10, 115, 'COLLECTED: basic', {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#888888'
+    });
+
+    // Boss health bar (hidden by default)
+    this.bossHealthBarBg = this.add.graphics();
+    this.bossHealthBarBg.fillStyle(0x333333, 0.8);
+    this.bossHealthBarBg.fillRect(200, 560, 400, 25);
+    this.bossHealthBarBg.setVisible(false);
+
+    this.bossHealthBar = this.add.graphics();
+    this.bossHealthBar.setVisible(false);
+
+    this.bossNameText = this.add.text(400, 545, '', {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#ff0000',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    this.bossNameText.setVisible(false);
+
+    this.updateHUD();
+  }
+
+  updateHUD() {
+    const state = window.VIBE_CODER;
+    const xpNeeded = state.xpForLevel(state.level);
+    const xpPercent = state.xp / xpNeeded;
+
+    // Update XP bar
+    this.xpBar.clear();
+    this.xpBar.fillStyle(0x00ffff, 1);
+    this.xpBar.fillRect(10, 10, 200 * xpPercent, 20);
+
+    // Update health bar
+    const healthPercent = this.player.health / this.player.maxHealth;
+    this.healthBar.clear();
+    this.healthBar.fillStyle(healthPercent > 0.3 ? 0x00ff00 : 0xff0000, 1);
+    this.healthBar.fillRect(10, 35, 200 * healthPercent, 15);
+
+    // Update text
+    this.levelText.setText(`LVL ${state.level}`);
+    this.xpText.setText(`XP: ${state.xp} / ${xpNeeded}`);
+    this.killsText.setText(`KILLS: ${state.kills}`);
+    this.waveText.setText(`WAVE ${this.waveNumber}`);
+
+    // Update weapon text
+    const weaponColors = {
+      basic: '#00ffff',
+      spread: '#ff9900',
+      pierce: '#0099ff',
+      orbital: '#aa44ff',
+      rapid: '#ffcc00',
+      rmrf: '#ff0000',
+      sudo: '#ffd700',
+      forkbomb: '#ff00ff',
+      // Evolved weapons
+      laserbeam: '#ff0088',
+      plasmaorb: '#00ffaa',
+      chainlightning: '#00aaff'
+    };
+    const weaponLabel = this.currentWeapon.isEvolved ? `★${this.currentWeapon.type.toUpperCase()}★` : this.currentWeapon.type.toUpperCase();
+    this.weaponText.setText(`WEAPON: ${weaponLabel}`);
+    this.weaponText.setColor(weaponColors[this.currentWeapon.type] || '#00ffff');
+
+    // Update stage text
+    const stage = this.stages[this.currentStage];
+    this.stageText.setText(`STAGE: ${stage.name}`);
+
+    // Update high score display
+    if (this.highScoreText) {
+      this.highScoreText.setText(`HI-WAVE: ${this.highWave}`);
+    }
+
+    // Update collected weapons
+    if (this.weaponsCollectedText) {
+      const weapons = Array.from(this.collectedWeapons).join(', ');
+      this.weaponsCollectedText.setText(`COLLECTED: ${weapons}`);
+    }
+
+    // Update boss health bar
+    if (this.currentBoss && this.currentBoss.active) {
+      this.bossHealthBarBg.setVisible(true);
+      this.bossHealthBar.setVisible(true);
+      this.bossNameText.setVisible(true);
+
+      const bossHealthPercent = this.currentBoss.health / this.currentBoss.maxHealth;
+      this.bossHealthBar.clear();
+      this.bossHealthBar.fillStyle(this.currentBoss.bossColor, 1);
+      this.bossHealthBar.fillRect(200, 560, 400 * bossHealthPercent, 25);
+
+      this.bossNameText.setText(`⚠ ${this.currentBoss.bossName} ⚠`);
+      this.bossNameText.setColor(`#${this.currentBoss.bossColor.toString(16).padStart(6, '0')}`);
+    } else {
+      this.bossHealthBarBg.setVisible(false);
+      this.bossHealthBar.setVisible(false);
+      this.bossNameText.setVisible(false);
+    }
+  }
+
+  showXPPopup(amount) {
+    // Subtle XP blip sound
+    Audio.playXPGain();
+
+    const popup = this.add.text(
+      this.player.x + Phaser.Math.Between(-30, 30),
+      this.player.y - 40,
+      `+${amount} XP`,
+      {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#00ffff',
+        fontStyle: 'bold'
+      }
+    ).setOrigin(0.5);
+
+    // Animate popup
+    this.tweens.add({
+      targets: popup,
+      y: popup.y - 50,
+      alpha: 0,
+      duration: 1000,
+      ease: 'Power2',
+      onComplete: () => popup.destroy()
+    });
+
+    this.updateHUD();
+  }
+
+  showLevelUp(level) {
+    // Level up fanfare!
+    Audio.playLevelUp();
+
+    // Screen flash
+    this.cameras.main.flash(200, 0, 255, 255);
+
+    // Big level up text
+    const levelUpText = this.add.text(400, 300, `LEVEL ${level}!`, {
+      fontFamily: 'monospace',
+      fontSize: '48px',
+      color: '#00ffff',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+
+    // Animate
+    this.tweens.add({
+      targets: levelUpText,
+      scale: 1.5,
+      alpha: 0,
+      duration: 1500,
+      ease: 'Power2',
+      onComplete: () => levelUpText.destroy()
+    });
+
+    // Update player health on level up
+    const newMaxHealth = this.getStats().maxHealth;
+    this.player.maxHealth = newMaxHealth;
+    this.player.health = newMaxHealth; // Full heal on level up!
+
+    // XP MAGNET on every level up!
+    this.time.delayedCall(200, () => this.activateXPMagnet());
+
+    this.updateHUD();
+  }
+
+  startWave() {
+    // Check for stage transition
+    this.checkStageChange();
+
+    // Check if this is a boss wave (every 20 waves)
+    if (this.waveNumber % 20 === 0) {
+      this.spawnBoss();
+      // Don't spawn normal enemies on boss waves
+      this.spawnTimer = { getRemaining: () => 0 };
+
+      this.waveTimer = this.time.addEvent({
+        delay: 2000,
+        callback: () => this.checkWaveComplete(),
+        loop: true
+      });
+      return;
+    }
+
+    // Mini-boss waves: 10, 30, 50, 70... (every 20 starting at 10)
+    const isMiniBossWave = this.waveNumber >= 10 && this.waveNumber % 20 === 10;
+    if (isMiniBossWave) {
+      this.spawnMiniBoss();
+    }
+
+    // Spawn enemies over time (cap the scaling so it doesn't get insane)
+    let spawned = 0;
+    const toSpawn = Math.min(this.enemiesPerWave + (this.waveNumber * 2), 25);
+
+    this.spawnTimer = this.time.addEvent({
+      delay: 1000,
+      callback: () => {
+        if (spawned < toSpawn) {
+          this.spawnEnemy();
+          spawned++;
+        }
+      },
+      repeat: toSpawn - 1
+    });
+
+    // Check for wave completion
+    this.waveTimer = this.time.addEvent({
+      delay: 2000,
+      callback: () => this.checkWaveComplete(),
+      loop: true
+    });
+
+    // Update high wave record
+    if (this.waveNumber > this.highWave) {
+      this.highWave = this.waveNumber;
+      localStorage.setItem('vibeCoderHighWave', this.highWave.toString());
+    }
+  }
+
+  checkWaveComplete() {
+    const bossAlive = this.currentBoss && this.currentBoss.active;
+    const enemiesCleared = this.enemies.countActive() === 0;
+    const spawnDone = this.spawnTimer && !this.spawnTimer.getRemaining();
+
+    if (enemiesCleared && spawnDone && !bossAlive) {
+      // Wave complete sound!
+      Audio.playWaveComplete();
+
+      this.waveNumber++;
+      this.waveText.setText(`WAVE ${this.waveNumber}`);
+
+      // Wave complete bonus XP (more for boss waves)
+      const wassBossWave = (this.waveNumber - 1) % 20 === 0;
+      window.VIBE_CODER.addXP(this.waveNumber * (wassBossWave ? 100 : 25));
+
+      // Start next wave after delay
+      this.time.delayedCall(2000, () => this.startWave());
+
+      // Show wave text with special boss wave indicator
+      const isBossWave = this.waveNumber % 20 === 0;
+      const waveColor = isBossWave ? '#ff0000' : '#ff00ff';
+      const waveText = isBossWave ? `⚠ BOSS WAVE ${this.waveNumber} ⚠` : `WAVE ${this.waveNumber}`;
+
+      const waveAnnounce = this.add.text(400, 200, waveText, {
+        fontFamily: 'monospace',
+        fontSize: isBossWave ? '28px' : '32px',
+        color: waveColor,
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      this.tweens.add({
+        targets: waveAnnounce,
+        alpha: 0,
+        scale: isBossWave ? 1.5 : 1,
+        duration: 2000,
+        onComplete: () => waveAnnounce.destroy()
+      });
+
+      // Screen shake for boss wave announcement
+      if (isBossWave) {
+        this.cameras.main.shake(500, 0.01);
+      }
+    }
+  }
+
+  spawnBoss() {
+    // Determine which boss to spawn based on wave
+    let bossKey = 'boss-stackoverflow';
+    if (this.waveNumber >= 80) bossKey = 'boss-kernelpanic';
+    else if (this.waveNumber >= 60) bossKey = 'boss-memoryleakprime';
+    else if (this.waveNumber >= 40) bossKey = 'boss-nullpointer';
+
+    const bossData = this.bossTypes[bossKey];
+
+    // Scale boss health with wave number
+    const healthScale = 1 + Math.floor(this.waveNumber / 20) * 0.5;
+
+    // Spawn boss from top center
+    const boss = this.enemies.create(400, -80, bossKey);
+    boss.health = Math.floor(bossData.health * healthScale);
+    boss.maxHealth = boss.health;
+    boss.speed = bossData.speed;
+    boss.damage = bossData.damage;
+    boss.xpValue = bossData.xpValue;
+    boss.enemyType = bossKey;
+    boss.isBoss = true;
+    boss.bossName = bossData.name;
+    boss.bossColor = bossData.color;
+    boss.ability = bossData.ability;
+    boss.lastAbilityTime = 0;
+
+    // Set boss as current boss for health bar
+    this.currentBoss = boss;
+
+    // Boss warning sound!
+    Audio.playBossWarning();
+
+    // Boss entrance effect
+    this.cameras.main.shake(1000, 0.02);
+    this.cameras.main.flash(300, 255, 0, 0);
+
+    // Boss announcement
+    const bossAnnounce = this.add.text(400, 150, `${bossData.name}\nHAS APPEARED!`, {
+      fontFamily: 'monospace',
+      fontSize: '24px',
+      color: `#${bossData.color.toString(16).padStart(6, '0')}`,
+      fontStyle: 'bold',
+      align: 'center',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: bossAnnounce,
+      scale: 1.3,
+      alpha: 0,
+      duration: 3000,
+      onComplete: () => bossAnnounce.destroy()
+    });
+
+    this.updateHUD();
+  }
+
+  spawnEnemy() {
+    // CAP enemies on screen to prevent overwhelming at high levels
+    const MAX_ENEMIES = 30;
+    if (this.enemies.countActive() >= MAX_ENEMIES) return;
+
+    // Spawn from random edge
+    const side = Phaser.Math.Between(0, 3);
+    let x, y;
+
+    switch (side) {
+      case 0: x = Phaser.Math.Between(0, 800); y = -50; break; // Top
+      case 1: x = 850; y = Phaser.Math.Between(0, 600); break; // Right
+      case 2: x = Phaser.Math.Between(0, 800); y = 650; break; // Bottom
+      case 3: x = -50; y = Phaser.Math.Between(0, 600); break; // Left
+    }
+
+    // Choose enemy type based on wave with scaling pools
+    const playerLevel = window.VIBE_CODER.level;
+    const healthScale = 1 + Math.min(playerLevel * 0.05, 2); // Cap at 3x health
+
+    // Build spawn pool based on wave progression
+    const spawnPool = ['bug', 'bug', 'bug']; // bugs always common
+
+    if (this.waveNumber >= 3) spawnPool.push('glitch', 'glitch');
+    if (this.waveNumber >= 5) spawnPool.push('memory-leak');
+
+    // New enemy types unlock at higher waves
+    if (this.waveNumber >= 8) spawnPool.push('syntax-error', 'syntax-error');
+    if (this.waveNumber >= 12) spawnPool.push('infinite-loop');
+    if (this.waveNumber >= 15) spawnPool.push('race-condition');
+
+    const type = Phaser.Utils.Array.GetRandom(spawnPool);
+    const typeData = this.enemyTypes[type];
+
+    const enemy = this.enemies.create(x, y, type);
+    enemy.health = Math.floor(typeData.health * healthScale);
+    enemy.speed = typeData.speed;
+    enemy.damage = typeData.damage;
+    enemy.xpValue = typeData.xpValue;
+    enemy.enemyType = type;
+    enemy.behavior = typeData.behavior;
+
+    // Behavior-specific setup
+    if (typeData.behavior === 'teleport') {
+      enemy.lastTeleport = 0;
+      enemy.teleportCooldown = typeData.teleportCooldown;
+    }
+    if (typeData.behavior === 'orbit') {
+      enemy.orbitAngle = Math.random() * Math.PI * 2;
+      enemy.orbitRadius = typeData.orbitRadius;
+      enemy.orbitDirection = Math.random() > 0.5 ? 1 : -1;
+    }
+    if (typeData.behavior === 'erratic') {
+      enemy.speedVariance = typeData.speedVariance;
+      enemy.nextSpeedChange = this.time.now + Phaser.Math.Between(500, 1500);
+      enemy.currentSpeedMod = 1;
+    }
+  }
+
+  spawnMiniBoss() {
+    const miniBossData = this.miniBossTypes['miniboss-deadlock'];
+
+    // Scale mini-boss health with wave
+    const healthScale = 1 + Math.floor(this.waveNumber / 20) * 0.3;
+
+    const miniBoss = this.enemies.create(400, -60, 'miniboss');
+    miniBoss.health = Math.floor(miniBossData.health * healthScale);
+    miniBoss.maxHealth = miniBoss.health;
+    miniBoss.speed = miniBossData.speed;
+    miniBoss.damage = miniBossData.damage;
+    miniBoss.xpValue = miniBossData.xpValue;
+    miniBoss.enemyType = 'miniboss-deadlock';
+    miniBoss.isMiniBoss = true;
+    miniBoss.miniBossName = miniBossData.name;
+    miniBoss.miniBossColor = miniBossData.color;
+    miniBoss.behavior = 'chase';
+    miniBoss.ability = miniBossData.ability;
+    miniBoss.lastAbilityTime = 0;
+
+    // Mini-boss entrance
+    this.cameras.main.shake(300, 0.01);
+
+    const miniBossAnnounce = this.add.text(400, 150, `⚡ ${miniBossData.name} ⚡`, {
+      fontFamily: 'monospace',
+      fontSize: '20px',
+      color: `#${miniBossData.color.toString(16).padStart(6, '0')}`,
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: miniBossAnnounce,
+      scale: 1.2,
+      alpha: 0,
+      duration: 2000,
+      onComplete: () => miniBossAnnounce.destroy()
+    });
+  }
+
+  autoAttack() {
+    // Orbital weapons don't use normal attack - they're always active
+    if (this.currentWeapon.type === 'orbital') return;
+
+    const now = this.time.now;
+    const stats = this.getStats();
+    const weapon = this.weaponTypes[this.currentWeapon.type];
+
+    // Apply weapon's attack rate modifier
+    const attackDelay = stats.attackRate / weapon.attackRate;
+    if (now - this.lastAttackTime < attackDelay) return;
+
+    // Find nearest enemy
+    let nearest = null;
+    let nearestDist = Infinity;
+
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active) return;
+      const dist = Phaser.Math.Distance.Between(
+        this.player.x, this.player.y,
+        enemy.x, enemy.y
+      );
+      if (dist < nearestDist && dist < 300) { // Attack range
+        nearestDist = dist;
+        nearest = enemy;
+      }
+    });
+
+    if (nearest) {
+      this.lastAttackTime = now;
+
+      const baseAngle = Phaser.Math.Angle.Between(
+        this.player.x, this.player.y,
+        nearest.x, nearest.y
+      );
+
+      // Fire based on weapon type
+      const projectileCount = weapon.projectiles;
+      const spreadAngle = Math.PI / 6; // 30 degrees spread for spread shot
+
+      for (let i = 0; i < projectileCount; i++) {
+        let angle = baseAngle;
+
+        // Spread shot: fan out projectiles
+        if (projectileCount > 1) {
+          const offset = (i - (projectileCount - 1) / 2) * spreadAngle;
+          angle = baseAngle + offset;
+        }
+
+        const projectile = this.projectiles.create(this.player.x, this.player.y, 'slash');
+        projectile.setRotation(angle);
+        projectile.damage = Math.floor(stats.attackDamage * weapon.damage);
+        projectile.pierce = weapon.pierce;
+        projectile.setTint(weapon.color);
+
+        // Mark forkbomb projectiles for chain splitting
+        if (this.currentWeapon.type === 'forkbomb') {
+          projectile.isForkBomb = true;
+          projectile.forkDepth = 0;
+        }
+
+        // Set velocity
+        this.physics.velocityFromRotation(angle, 400, projectile.body.velocity);
+
+        // Pierce projectiles last longer
+        const lifetime = weapon.pierce ? 2000 : 1000;
+        this.time.delayedCall(lifetime, () => {
+          if (projectile.active) projectile.destroy();
+        });
+      }
+
+      // Screen shake on attack (subtle)
+      this.cameras.main.shake(50, 0.002);
+
+      // Play shoot sound
+      Audio.playShoot();
+    }
+  }
+
+  showMusicStatus(isPlaying) {
+    const statusText = this.add.text(400, 500, isPlaying ? '🎵 MUSIC ON' : '🔇 MUSIC OFF', {
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      color: isPlaying ? '#00ff00' : '#ff6666',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: statusText,
+      alpha: 0,
+      duration: 1500,
+      onComplete: () => statusText.destroy()
+    });
+  }
+
+  togglePause() {
+    if (this.isPaused) {
+      this.resumeGame();
+    } else {
+      this.pauseGame();
+    }
+  }
+
+  pauseGame() {
+    if (this.isPaused) return;
+    this.isPaused = true;
+    this.pauseSelectedOption = 0;
+
+    // Pause physics
+    this.physics.pause();
+
+    // Pause all tweens
+    this.tweens.pauseAll();
+
+    // Pause timers
+    if (this.spawnTimer) this.spawnTimer.paused = true;
+    if (this.waveTimer) this.waveTimer.paused = true;
+
+    // Create pause menu container
+    this.pauseMenu = this.add.container(400, 300);
+    this.pauseMenu.setDepth(1000);
+
+    // Dim overlay
+    const overlay = this.add.rectangle(0, 0, 800, 600, 0x000000, 0.8);
+    this.pauseMenu.add(overlay);
+
+    // Pause title
+    const pauseTitle = this.add.text(0, -150, 'PAUSED', {
+      fontFamily: 'monospace',
+      fontSize: '48px',
+      color: '#00ffff',
+      fontStyle: 'bold',
+      stroke: '#003333',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+    this.pauseMenu.add(pauseTitle);
+
+    // Wave info
+    const waveInfo = this.add.text(0, -90, `WAVE ${this.waveNumber} // KILLS: ${window.VIBE_CODER.kills}`, {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#888888'
+    }).setOrigin(0.5);
+    this.pauseMenu.add(waveInfo);
+
+    // Menu options
+    this.pauseMenuOptions = ['RESUME', 'RESTART', 'QUIT TO TITLE'];
+    this.pauseMenuTexts = [];
+
+    this.pauseMenuOptions.forEach((option, index) => {
+      const text = this.add.text(0, -20 + index * 50, option, {
+        fontFamily: 'monospace',
+        fontSize: '24px',
+        color: index === 0 ? '#00ffff' : '#666666',
+        fontStyle: index === 0 ? 'bold' : 'normal'
+      }).setOrigin(0.5);
+      this.pauseMenu.add(text);
+      this.pauseMenuTexts.push(text);
+    });
+
+    // Selector
+    this.pauseSelector = this.add.text(-100, -20, '>', {
+      fontFamily: 'monospace',
+      fontSize: '24px',
+      color: '#00ffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    this.pauseMenu.add(this.pauseSelector);
+
+    // Blink selector
+    this.pauseSelectorTween = this.tweens.add({
+      targets: this.pauseSelector,
+      alpha: 0.3,
+      duration: 500,
+      yoyo: true,
+      repeat: -1
+    });
+
+    // Control hint
+    const hint = this.add.text(0, 150, '[ ARROWS/WASD TO SELECT // ENTER TO CONFIRM ]', {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#666666'
+    }).setOrigin(0.5);
+    this.pauseMenu.add(hint);
+
+    // Setup pause menu input
+    this.pauseUpKey = this.input.keyboard.on('keydown-UP', () => this.movePauseSelection(-1));
+    this.pauseDownKey = this.input.keyboard.on('keydown-DOWN', () => this.movePauseSelection(1));
+    this.pauseWKey = this.input.keyboard.on('keydown-W', () => this.movePauseSelection(-1));
+    this.pauseSKey = this.input.keyboard.on('keydown-S', () => this.movePauseSelection(1));
+    this.pauseEnterKey = this.input.keyboard.on('keydown-ENTER', () => this.selectPauseOption());
+    this.pauseSpaceKey = this.input.keyboard.on('keydown-SPACE', () => this.selectPauseOption());
+  }
+
+  movePauseSelection(direction) {
+    if (!this.isPaused) return;
+
+    this.pauseSelectedOption += direction;
+    if (this.pauseSelectedOption < 0) this.pauseSelectedOption = this.pauseMenuOptions.length - 1;
+    if (this.pauseSelectedOption >= this.pauseMenuOptions.length) this.pauseSelectedOption = 0;
+
+    // Update visuals
+    this.pauseMenuTexts.forEach((text, index) => {
+      if (index === this.pauseSelectedOption) {
+        text.setColor('#00ffff');
+        text.setFontStyle('bold');
+      } else {
+        text.setColor('#666666');
+        text.setFontStyle('normal');
+      }
+    });
+
+    // Move selector
+    this.pauseSelector.setY(-20 + this.pauseSelectedOption * 50);
+
+    // Sound
+    Audio.playXPGain();
+  }
+
+  selectPauseOption() {
+    if (!this.isPaused) return;
+
+    switch (this.pauseSelectedOption) {
+      case 0: // RESUME
+        this.resumeGame();
+        break;
+
+      case 1: // RESTART
+        Audio.playWeaponPickup();
+        this.destroyPauseMenu();
+        this.restartGame();
+        break;
+
+      case 2: // QUIT TO TITLE
+        Audio.playWeaponPickup();
+        this.destroyPauseMenu();
+        this.quitToTitle();
+        break;
+    }
+  }
+
+  resumeGame() {
+    if (!this.isPaused) return;
+
+    Audio.playWeaponPickup();
+
+    this.destroyPauseMenu();
+
+    // Resume physics
+    this.physics.resume();
+
+    // Resume tweens
+    this.tweens.resumeAll();
+
+    // Resume timers
+    if (this.spawnTimer) this.spawnTimer.paused = false;
+    if (this.waveTimer) this.waveTimer.paused = false;
+
+    this.isPaused = false;
+  }
+
+  destroyPauseMenu() {
+    if (this.pauseMenu) {
+      this.pauseMenu.destroy();
+      this.pauseMenu = null;
+    }
+    if (this.pauseSelectorTween) {
+      this.pauseSelectorTween.stop();
+    }
+    this.pauseMenuTexts = [];
+  }
+
+  restartGame() {
+    // Reset everything
+    this.isPaused = false;
+
+    // Reset player
+    this.player.health = this.getStats().maxHealth;
+    this.player.maxHealth = this.getStats().maxHealth;
+    this.player.x = 400;
+    this.player.y = 300;
+    this.player.clearTint();
+
+    // Clear enemies
+    this.enemies.clear(true, true);
+    this.projectiles.clear(true, true);
+    this.weaponDrops.clear(true, true);
+
+    // Reset game state
+    this.waveNumber = 1;
+    this.currentStage = 0;
+    this.currentBoss = null;
+    this.invincible = false;
+    this.collectedWeapons = new Set(['basic']);
+    this.currentWeapon = { type: 'basic', duration: Infinity };
+    this.clearOrbitals();
+
+    // Reset VIBE_CODER state
+    window.VIBE_CODER.xp = 0;
+    window.VIBE_CODER.level = 1;
+    window.VIBE_CODER.kills = 0;
+    window.VIBE_CODER.streak = 1;
+
+    // Recreate background
+    this.createBackground();
+
+    // Resume physics
+    this.physics.resume();
+    this.tweens.resumeAll();
+
+    // Restart wave
+    this.startWave();
+    this.updateHUD();
+
+    // Show restart text
+    const restartText = this.add.text(400, 300, 'GAME RESTARTED', {
+      fontFamily: 'monospace',
+      fontSize: '28px',
+      color: '#00ffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: restartText,
+      alpha: 0,
+      scale: 1.5,
+      duration: 1500,
+      onComplete: () => restartText.destroy()
+    });
+  }
+
+  quitToTitle() {
+    this.isPaused = false;
+
+    // Save high scores
+    if (this.waveNumber > this.highWave) {
+      localStorage.setItem('vibeCoderHighWave', this.waveNumber.toString());
+    }
+
+    // Stop music
+    Audio.stopMusic();
+
+    // Fade out and go to title
+    this.cameras.main.fade(500, 0, 0, 0);
+    this.time.delayedCall(500, () => {
+      // Clean up
+      this.physics.resume();
+      this.tweens.resumeAll();
+
+      // Go to title scene
+      this.scene.start('TitleScene');
+    });
+  }
+
+  spawnWeaponDrop(x, y, forceRare = false) {
+    let weaponType;
+    let textureKey;
+
+    if (forceRare) {
+      // Rare weapons from bosses
+      const rarePool = ['rmrf', 'sudo', 'forkbomb'];
+      weaponType = Phaser.Utils.Array.GetRandom(rarePool);
+      textureKey = `weapon-${weaponType}`;
+    } else {
+      // Normal weapon drops
+      const weaponPool = ['spread', 'pierce', 'rapid'];
+      if (Math.random() < 0.2) weaponPool.push('orbital');
+      weaponType = Phaser.Utils.Array.GetRandom(weaponPool);
+      textureKey = `weapon-${weaponType}`;
+    }
+
+    const drop = this.weaponDrops.create(x, y, textureKey);
+    drop.weaponType = weaponType;
+    drop.isRare = forceRare;
+
+    // Bounce animation
+    this.tweens.add({
+      targets: drop,
+      y: y - 20,
+      duration: 300,
+      yoyo: true,
+      ease: 'Bounce.Out'
+    });
+
+    // Pulsing glow (more intense for rare)
+    this.tweens.add({
+      targets: drop,
+      scale: forceRare ? 1.5 : 1.3,
+      alpha: forceRare ? 1 : 0.7,
+      duration: forceRare ? 300 : 500,
+      yoyo: true,
+      repeat: -1
+    });
+
+    // Rare drops last longer (15 sec vs 10 sec)
+    const lifetime = forceRare ? 15000 : 10000;
+    this.time.delayedCall(lifetime, () => {
+      if (drop.active) {
+        this.tweens.add({
+          targets: drop,
+          alpha: 0,
+          duration: 500,
+          onComplete: () => drop.destroy()
+        });
+      }
+    });
+
+    // Special announcement for rare drops
+    if (forceRare) {
+      const rareNames = {
+        rmrf: '💀 rm -rf',
+        sudo: '👑 SUDO MODE',
+        forkbomb: '💣 FORK BOMB'
+      };
+      const dropText = this.add.text(x, y - 40, `${rareNames[weaponType]} DROPPED!`, {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#ffd700',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      this.tweens.add({
+        targets: dropText,
+        y: dropText.y - 30,
+        alpha: 0,
+        duration: 2000,
+        onComplete: () => dropText.destroy()
+      });
+    }
+  }
+
+  pickupWeapon(player, drop) {
+    const weaponType = drop.weaponType;
+    const isRare = drop.isRare;
+    drop.destroy();
+
+    // Handle special rare weapon effects
+    if (weaponType === 'rmrf') {
+      // rm -rf: INSTANT KILL ALL ENEMIES ON SCREEN
+      this.activateRmRf();
+      return;
+    }
+
+    if (weaponType === 'sudo') {
+      // Sudo: God mode for 10 seconds
+      this.activateSudoMode();
+      return;
+    }
+
+    // Track collected weapons for evolution
+    this.collectedWeapons.add(weaponType);
+
+    // Check for weapon evolution!
+    const evolvedWeapon = this.checkWeaponEvolution(weaponType);
+    const finalWeaponType = evolvedWeapon || weaponType;
+
+    // Set new weapon with duration (rare/evolved weapons last longer)
+    const isEvolved = evolvedWeapon !== null;
+    const duration = isEvolved ? 25000 : (isRare ? 20000 : 15000);
+    this.currentWeapon = {
+      type: finalWeaponType,
+      duration: duration,
+      isEvolved: isEvolved
+    };
+
+    // If orbital, create orbital projectiles
+    if (weaponType === 'orbital') {
+      this.createOrbitals();
+    }
+
+    // Show pickup text
+    const weaponNames = {
+      spread: '🔥 SPREAD SHOT',
+      pierce: '💎 PIERCING',
+      orbital: '🌀 ORBITAL',
+      rapid: '⚡ RAPID FIRE',
+      forkbomb: '💣 FORK BOMB'
+    };
+
+    const textColor = isRare ? '#ffd700' : '#ffffff';
+    const pickupText = this.add.text(player.x, player.y - 50, weaponNames[weaponType] || weaponType.toUpperCase(), {
+      fontFamily: 'monospace',
+      fontSize: isRare ? '20px' : '16px',
+      color: textColor,
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: pickupText,
+      y: pickupText.y - 40,
+      alpha: 0,
+      duration: 1500,
+      onComplete: () => pickupText.destroy()
+    });
+
+    // Weapon pickup sound
+    Audio.playWeaponPickup();
+
+    // Screen flash (more dramatic for rare)
+    if (isRare) {
+      this.cameras.main.flash(200, 255, 215, 0);
+    } else {
+      this.cameras.main.flash(100, 255, 255, 0);
+    }
+
+    // Start weapon timer
+    this.time.delayedCall(this.currentWeapon.duration, () => {
+      // Revert to basic if still using this weapon
+      if (this.currentWeapon.type === weaponType) {
+        this.currentWeapon = { type: 'basic', duration: Infinity };
+        this.clearOrbitals();
+
+        const revertText = this.add.text(this.player.x, this.player.y - 30, 'WEAPON EXPIRED', {
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: '#ff6666'
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+          targets: revertText,
+          alpha: 0,
+          duration: 1000,
+          onComplete: () => revertText.destroy()
+        });
+      }
+    });
+
+    this.updateHUD();
+  }
+
+  activateRmRf() {
+    // THE NUCLEAR OPTION - KILL EVERYTHING
+    Audio.playNuke();
+
+    this.cameras.main.flash(500, 255, 0, 0);
+    this.cameras.main.shake(800, 0.04);
+
+    // Big announcement
+    const rmrfText = this.add.text(400, 300, '💀 rm -rf /* 💀\nEXECUTED', {
+      fontFamily: 'monospace',
+      fontSize: '36px',
+      color: '#ff0000',
+      fontStyle: 'bold',
+      align: 'center',
+      stroke: '#000000',
+      strokeThickness: 5
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: rmrfText,
+      scale: 2,
+      alpha: 0,
+      duration: 1500,
+      onComplete: () => rmrfText.destroy()
+    });
+
+    // Kill ALL enemies
+    let killCount = 0;
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active) return;
+
+      killCount++;
+      window.VIBE_CODER.addXP(enemy.xpValue);
+      window.VIBE_CODER.kills++;
+
+      // Death particle
+      for (let i = 0; i < 3; i++) {
+        const particle = this.add.circle(
+          enemy.x + Phaser.Math.Between(-20, 20),
+          enemy.y + Phaser.Math.Between(-20, 20),
+          Phaser.Math.Between(5, 12),
+          0xff0000
+        );
+        this.tweens.add({
+          targets: particle,
+          alpha: 0,
+          scale: 0,
+          duration: 500,
+          onComplete: () => particle.destroy()
+        });
+      }
+
+      // Clear boss reference if needed
+      if (enemy.isBoss && this.currentBoss === enemy) {
+        this.currentBoss = null;
+      }
+
+      enemy.destroy();
+    });
+
+    // Show kill count
+    if (killCount > 0) {
+      const killText = this.add.text(400, 400, `${killCount} PROCESSES TERMINATED`, {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#ff6666'
+      }).setOrigin(0.5);
+
+      this.tweens.add({
+        targets: killText,
+        alpha: 0,
+        duration: 2000,
+        onComplete: () => killText.destroy()
+      });
+    }
+
+    this.updateHUD();
+  }
+
+  activateSudoMode() {
+    // GOD MODE - invincible + 3x damage for 10 seconds
+    this.cameras.main.flash(300, 255, 215, 0);
+
+    const sudoText = this.add.text(400, 300, '👑 SUDO MODE ACTIVATED 👑\nINVINCIBLE + 3X DAMAGE', {
+      fontFamily: 'monospace',
+      fontSize: '24px',
+      color: '#ffd700',
+      fontStyle: 'bold',
+      align: 'center',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: sudoText,
+      scale: 1.3,
+      alpha: 0,
+      duration: 2000,
+      onComplete: () => sudoText.destroy()
+    });
+
+    // Set sudo weapon (has 3x damage)
+    this.currentWeapon = {
+      type: 'sudo',
+      duration: 10000
+    };
+
+    // Make player invincible
+    this.invincible = true;
+
+    // Golden glow effect on player
+    this.player.setTint(0xffd700);
+
+    // End sudo after 10 seconds
+    this.time.delayedCall(10000, () => {
+      if (this.currentWeapon.type === 'sudo') {
+        this.currentWeapon = { type: 'basic', duration: Infinity };
+        this.invincible = false;
+        this.player.clearTint();
+
+        const endText = this.add.text(this.player.x, this.player.y - 30, 'SUDO EXPIRED', {
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          color: '#ff6666'
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+          targets: endText,
+          alpha: 0,
+          duration: 1000,
+          onComplete: () => endText.destroy()
+        });
+
+        this.updateHUD();
+      }
+    });
+
+    this.updateHUD();
+  }
+
+  createOrbitals() {
+    this.clearOrbitals();
+
+    const stats = this.getStats();
+    const weapon = this.weaponTypes.orbital;
+
+    // Create 3 orbiting projectiles
+    for (let i = 0; i < 3; i++) {
+      const orbital = this.add.circle(0, 0, 12, weapon.color);
+      orbital.angle = (i * 120) * (Math.PI / 180);
+      orbital.damage = Math.floor(stats.attackDamage * weapon.damage);
+      this.orbitals.add(orbital);
+    }
+  }
+
+  clearOrbitals() {
+    this.orbitals.clear(true, true);
+  }
+
+  checkWeaponEvolution(newWeapon) {
+    // Check if we can evolve by combining collected weapons
+    for (const [combo, evolved] of Object.entries(this.evolutionRecipes)) {
+      const [weapon1, weapon2] = combo.split('+');
+
+      // Check if we have both weapons AND just picked up one of them
+      if (this.collectedWeapons.has(weapon1) && this.collectedWeapons.has(weapon2)) {
+        if (newWeapon === weapon1 || newWeapon === weapon2) {
+          // Evolution triggered!
+          this.showEvolutionEffect(evolved);
+
+          // Add evolved weapon to weaponTypes
+          if (!this.weaponTypes[evolved.result]) {
+            this.weaponTypes[evolved.result] = evolved;
+          }
+
+          return evolved.result;
+        }
+      }
+    }
+    return null;
+  }
+
+  showEvolutionEffect(evolved) {
+    // Epic evolution sound!
+    Audio.playEvolution();
+
+    // Epic evolution visual
+    this.cameras.main.flash(400, 255, 255, 255);
+    this.cameras.main.shake(300, 0.02);
+
+    const evoText = this.add.text(400, 250, `⚡ WEAPON EVOLVED! ⚡\n${evolved.name}`, {
+      fontFamily: 'monospace',
+      fontSize: '28px',
+      color: `#${evolved.color.toString(16).padStart(6, '0')}`,
+      fontStyle: 'bold',
+      align: 'center',
+      stroke: '#000000',
+      strokeThickness: 5
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: evoText,
+      scale: 1.5,
+      alpha: 0,
+      duration: 2500,
+      onComplete: () => evoText.destroy()
+    });
+
+    // Particle burst
+    for (let i = 0; i < 20; i++) {
+      const particle = this.add.circle(
+        this.player.x + Phaser.Math.Between(-50, 50),
+        this.player.y + Phaser.Math.Between(-50, 50),
+        Phaser.Math.Between(5, 15),
+        evolved.color
+      );
+      this.tweens.add({
+        targets: particle,
+        x: particle.x + Phaser.Math.Between(-100, 100),
+        y: particle.y + Phaser.Math.Between(-100, 100),
+        alpha: 0,
+        scale: 0,
+        duration: 800,
+        onComplete: () => particle.destroy()
+      });
+    }
+  }
+
+  activateXPMagnet() {
+    // Magnet effect: pull all XP orbs/enemies toward player briefly, then kill them
+    // For now, give bonus XP and create visual magnet effect
+    Audio.playMagnet();
+
+    const magnetText = this.add.text(400, 350, '🧲 XP MAGNET! 🧲', {
+      fontFamily: 'monospace',
+      fontSize: '20px',
+      color: '#00ffff',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: magnetText,
+      scale: 1.3,
+      alpha: 0,
+      duration: 1500,
+      onComplete: () => magnetText.destroy()
+    });
+
+    // Create magnetic pull visual on nearby enemies
+    const magnetRadius = 200;
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active) return;
+
+      const dist = Phaser.Math.Distance.Between(
+        enemy.x, enemy.y,
+        this.player.x, this.player.y
+      );
+
+      if (dist < magnetRadius) {
+        // Pull enemies toward player
+        this.tweens.add({
+          targets: enemy,
+          x: this.player.x,
+          y: this.player.y,
+          duration: 500,
+          ease: 'Quad.easeIn',
+          onComplete: () => {
+            if (enemy.active) {
+              // Award XP for magnetized enemies
+              window.VIBE_CODER.addXP(Math.floor(enemy.xpValue * 0.5));
+              window.VIBE_CODER.kills++;
+
+              // Death effect
+              const particle = this.add.circle(enemy.x, enemy.y, 15, 0x00ffff, 0.8);
+              this.tweens.add({
+                targets: particle,
+                alpha: 0,
+                scale: 3,
+                duration: 300,
+                onComplete: () => particle.destroy()
+              });
+
+              enemy.destroy();
+              this.updateHUD();
+            }
+          }
+        });
+
+        // Cyan tint while being pulled
+        enemy.setTint(0x00ffff);
+      }
+    });
+
+    // Create magnetic ring visual
+    const ring = this.add.circle(this.player.x, this.player.y, magnetRadius, 0x00ffff, 0);
+    ring.setStrokeStyle(3, 0x00ffff, 0.5);
+
+    this.tweens.add({
+      targets: ring,
+      scale: 0,
+      alpha: 0,
+      duration: 500,
+      onComplete: () => ring.destroy()
+    });
+  }
+
+  updateOrbitals() {
+    if (this.currentWeapon.type !== 'orbital' || this.orbitals.getLength() === 0) return;
+
+    const radius = 80;
+    const speed = 0.05;
+
+    this.orbitals.children.each((orbital) => {
+      orbital.angle += speed;
+      orbital.x = this.player.x + Math.cos(orbital.angle) * radius;
+      orbital.y = this.player.y + Math.sin(orbital.angle) * radius;
+
+      // Check collision with enemies
+      this.enemies.children.each((enemy) => {
+        if (!enemy.active) return;
+        const dist = Phaser.Math.Distance.Between(orbital.x, orbital.y, enemy.x, enemy.y);
+        if (dist < 25) {
+          // Hit enemy
+          enemy.health -= orbital.damage;
+          enemy.setTint(0xffffff);
+          this.time.delayedCall(50, () => {
+            if (enemy.active) enemy.clearTint();
+          });
+
+          if (enemy.health <= 0) {
+            window.VIBE_CODER.addXP(enemy.xpValue);
+            window.VIBE_CODER.kills++;
+            if (Math.random() < 0.1) this.spawnWeaponDrop(enemy.x, enemy.y);
+            enemy.destroy();
+            this.updateHUD();
+          }
+        }
+      });
+    });
+  }
+
+  hitEnemy(projectile, enemy) {
+    // Deal damage
+    enemy.health -= projectile.damage;
+
+    // Play hit sound
+    Audio.playHit();
+
+    // Fork bomb special: spawn 2 child projectiles on hit
+    if (projectile.isForkBomb && !projectile.isChild && projectile.forkDepth < 2) {
+      for (let i = 0; i < 2; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const child = this.projectiles.create(projectile.x, projectile.y, 'slash');
+        child.setRotation(angle);
+        child.damage = Math.floor(projectile.damage * 0.7);
+        child.pierce = false;
+        child.setTint(0xff00ff);
+        child.isForkBomb = true;
+        child.isChild = true;
+        child.forkDepth = (projectile.forkDepth || 0) + 1;
+        this.physics.velocityFromRotation(angle, 300, child.body.velocity);
+        this.time.delayedCall(500, () => {
+          if (child.active) child.destroy();
+        });
+      }
+    }
+
+    // Only destroy non-piercing projectiles
+    if (!projectile.pierce) {
+      projectile.destroy();
+    }
+
+    // Flash enemy white then back
+    enemy.setTint(0xffffff);
+    this.time.delayedCall(100, () => {
+      if (enemy.active) {
+        enemy.clearTint();
+      }
+    });
+
+    // Check death
+    if (enemy.health <= 0) {
+      // Award XP
+      window.VIBE_CODER.addXP(enemy.xpValue);
+      window.VIBE_CODER.kills++;
+
+      // Boss death - special handling
+      if (enemy.isBoss) {
+        // Epic boss death sound!
+        Audio.playBossDeath();
+
+        // Guaranteed rare weapon drop!
+        this.spawnWeaponDrop(enemy.x, enemy.y, true);
+
+        // Clear current boss reference
+        if (this.currentBoss === enemy) {
+          this.currentBoss = null;
+        }
+
+        // Epic death effect
+        this.cameras.main.shake(500, 0.03);
+        this.cameras.main.flash(300, 255, 255, 255);
+
+        // Boss death announcement
+        const deathText = this.add.text(400, 300, `${enemy.bossName}\nDEFEATED!`, {
+          fontFamily: 'monospace',
+          fontSize: '32px',
+          color: '#ffd700',
+          fontStyle: 'bold',
+          align: 'center',
+          stroke: '#000000',
+          strokeThickness: 4
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+          targets: deathText,
+          scale: 1.5,
+          alpha: 0,
+          duration: 2000,
+          onComplete: () => deathText.destroy()
+        });
+
+        // Massive particle explosion
+        for (let i = 0; i < 30; i++) {
+          const particle = this.add.circle(
+            enemy.x + Phaser.Math.Between(-50, 50),
+            enemy.y + Phaser.Math.Between(-50, 50),
+            Phaser.Math.Between(5, 15),
+            enemy.bossColor
+          );
+          this.tweens.add({
+            targets: particle,
+            x: particle.x + Phaser.Math.Between(-100, 100),
+            y: particle.y + Phaser.Math.Between(-100, 100),
+            alpha: 0,
+            scale: 0,
+            duration: 800,
+            onComplete: () => particle.destroy()
+          });
+        }
+      } else {
+        // Normal enemy death sound
+        Audio.playEnemyDeath();
+
+        // Chance to drop weapon (10% base, higher for stronger enemies)
+        const dropChance = enemy.enemyType === 'bug' ? 0.08 :
+                           enemy.enemyType === 'glitch' ? 0.15 : 0.25;
+        if (Math.random() < dropChance) {
+          this.spawnWeaponDrop(enemy.x, enemy.y);
+        }
+
+        // Normal death effect
+        this.cameras.main.shake(100, 0.005);
+
+        // Particle burst (simple)
+        const particleColors = {
+          'bug': 0x00ff00,
+          'glitch': 0xff00ff,
+          'memory-leak': 0xaa00ff,
+          'syntax-error': 0xff6600,
+          'infinite-loop': 0x00ffff,
+          'race-condition': 0xffff00,
+          'miniboss-deadlock': 0xff6600
+        };
+        for (let i = 0; i < 5; i++) {
+          const particle = this.add.circle(
+            enemy.x + Phaser.Math.Between(-20, 20),
+            enemy.y + Phaser.Math.Between(-20, 20),
+            Phaser.Math.Between(3, 8),
+            particleColors[enemy.enemyType] || 0x00ff00
+          );
+          this.tweens.add({
+            targets: particle,
+            alpha: 0,
+            scale: 0,
+            duration: 300,
+            onComplete: () => particle.destroy()
+          });
+        }
+      }
+
+      enemy.destroy();
+      this.updateHUD();
+    }
+  }
+
+  playerHit(player, enemy) {
+    // Invincibility frames - can't get hit while flashing
+    if (this.invincible) return;
+
+    // Take damage
+    player.health -= enemy.damage;
+
+    // Play damage sound
+    Audio.playPlayerHit();
+
+    // Become invincible for a bit
+    this.invincible = true;
+
+    // Flash red/white cycle to show i-frames
+    let flashCount = 0;
+    const flashTimer = this.time.addEvent({
+      delay: 100,
+      callback: () => {
+        flashCount++;
+        player.setAlpha(flashCount % 2 === 0 ? 1 : 0.3);
+        if (flashCount >= 10) {
+          player.setAlpha(1);
+          this.invincible = false;
+          flashTimer.destroy();
+        }
+      },
+      loop: true
+    });
+
+    // Screen shake
+    this.cameras.main.shake(100, 0.01);
+
+    // Knockback enemy
+    const angle = Phaser.Math.Angle.Between(player.x, player.y, enemy.x, enemy.y);
+    enemy.x += Math.cos(angle) * 50;
+    enemy.y += Math.sin(angle) * 50;
+
+    this.updateHUD();
+
+    // Check death
+    if (player.health <= 0) {
+      this.invincible = false;
+      this.playerDeath();
+    }
+  }
+
+  playerDeath() {
+    // Save high score before reset
+    const state = window.VIBE_CODER;
+    const isNewHighWave = this.waveNumber > this.highWave;
+    const isNewHighScore = state.totalXP > this.highScore;
+
+    if (isNewHighWave) {
+      this.highWave = this.waveNumber;
+      localStorage.setItem('vibeCoderHighWave', this.highWave.toString());
+    }
+    if (isNewHighScore) {
+      this.highScore = state.totalXP;
+      localStorage.setItem('vibeCoderHighScore', this.highScore.toString());
+    }
+
+    // Game over - respawn
+    this.cameras.main.fade(500, 0, 0, 0);
+
+    this.time.delayedCall(500, () => {
+      // Reset player
+      this.player.health = this.player.maxHealth;
+      this.player.x = 400;
+      this.player.y = 300;
+
+      // Clear enemies
+      this.enemies.clear(true, true);
+
+      // Reset wave
+      this.waveNumber = 1;
+      this.currentStage = 0;
+      this.createBackground();
+
+      // Reset collected weapons
+      this.collectedWeapons = new Set(['basic']);
+      this.currentWeapon = { type: 'basic', duration: Infinity };
+      this.clearOrbitals();
+
+      // Fade back in
+      this.cameras.main.fadeIn(500);
+
+      // Show respawn text with high score info
+      let respawnMessage = 'RESPAWNED';
+      if (isNewHighWave) {
+        respawnMessage = `NEW HIGH WAVE: ${this.highWave}!\nRESPAWNED`;
+      }
+
+      const respawnText = this.add.text(400, 300, respawnMessage, {
+        fontFamily: 'monospace',
+        fontSize: isNewHighWave ? '28px' : '32px',
+        color: isNewHighWave ? '#ffd700' : '#00ffff',
+        fontStyle: 'bold',
+        align: 'center'
+      }).setOrigin(0.5);
+
+      this.tweens.add({
+        targets: respawnText,
+        alpha: 0,
+        duration: 2000,
+        onComplete: () => respawnText.destroy()
+      });
+
+      // Restart spawning
+      this.startWave();
+      this.updateHUD();
+    });
+  }
+
+  update() {
+    if (!this.player || !this.player.active) return;
+
+    // Handle movement
+    const stats = this.getStats();
+    let vx = 0;
+    let vy = 0;
+
+    if (this.cursors.left.isDown || this.wasd.left.isDown) vx = -1;
+    if (this.cursors.right.isDown || this.wasd.right.isDown) vx = 1;
+    if (this.cursors.up.isDown || this.wasd.up.isDown) vy = -1;
+    if (this.cursors.down.isDown || this.wasd.down.isDown) vy = 1;
+
+    // Normalize diagonal movement
+    if (vx !== 0 && vy !== 0) {
+      vx *= 0.707;
+      vy *= 0.707;
+    }
+
+    this.player.setVelocity(vx * stats.speed, vy * stats.speed);
+
+    // Flip sprite based on movement
+    if (vx < 0) this.player.setFlipX(true);
+    if (vx > 0) this.player.setFlipX(false);
+
+    // Move enemies toward player with unique behaviors
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active) return;
+
+      const angle = Phaser.Math.Angle.Between(
+        enemy.x, enemy.y,
+        this.player.x, this.player.y
+      );
+
+      const dist = Phaser.Math.Distance.Between(
+        enemy.x, enemy.y,
+        this.player.x, this.player.y
+      );
+
+      // Handle different enemy behaviors
+      switch (enemy.behavior) {
+        case 'teleport':
+          // Syntax Error: teleports short distances periodically
+          if (this.time.now - enemy.lastTeleport > enemy.teleportCooldown && dist < 250) {
+            enemy.lastTeleport = this.time.now;
+            // Teleport closer to player
+            const teleportDist = Phaser.Math.Between(40, 80);
+            enemy.x += Math.cos(angle) * teleportDist;
+            enemy.y += Math.sin(angle) * teleportDist;
+            // Teleport visual effect
+            const flash = this.add.circle(enemy.x, enemy.y, 20, 0xff6600, 0.5);
+            this.tweens.add({
+              targets: flash,
+              alpha: 0,
+              scale: 2,
+              duration: 200,
+              onComplete: () => flash.destroy()
+            });
+          }
+          enemy.setVelocity(
+            Math.cos(angle) * enemy.speed,
+            Math.sin(angle) * enemy.speed
+          );
+          break;
+
+        case 'orbit':
+          // Infinite Loop: circles around the player
+          enemy.orbitAngle += 0.02 * enemy.orbitDirection;
+          const targetX = this.player.x + Math.cos(enemy.orbitAngle) * enemy.orbitRadius;
+          const targetY = this.player.y + Math.sin(enemy.orbitAngle) * enemy.orbitRadius;
+          const orbitAngle = Phaser.Math.Angle.Between(enemy.x, enemy.y, targetX, targetY);
+          enemy.setVelocity(
+            Math.cos(orbitAngle) * enemy.speed,
+            Math.sin(orbitAngle) * enemy.speed
+          );
+          break;
+
+        case 'erratic':
+          // Race Condition: erratic speed changes
+          if (this.time.now > enemy.nextSpeedChange) {
+            enemy.currentSpeedMod = Phaser.Math.FloatBetween(0.3, 2.5);
+            enemy.nextSpeedChange = this.time.now + Phaser.Math.Between(300, 1000);
+            // Random direction offset
+            enemy.erraticOffset = Phaser.Math.FloatBetween(-0.5, 0.5);
+          }
+          const erraticAngle = angle + (enemy.erraticOffset || 0);
+          enemy.setVelocity(
+            Math.cos(erraticAngle) * enemy.speed * enemy.currentSpeedMod,
+            Math.sin(erraticAngle) * enemy.speed * enemy.currentSpeedMod
+          );
+          break;
+
+        case 'chase':
+        default:
+          // Standard chase behavior
+          enemy.setVelocity(
+            Math.cos(angle) * enemy.speed,
+            Math.sin(angle) * enemy.speed
+          );
+          break;
+      }
+    });
+
+    // Auto attack
+    this.autoAttack();
+
+    // Update orbital weapons
+    this.updateOrbitals();
+  }
+}
