@@ -7,6 +7,8 @@ let musicGain = null;
 let sfxGain = null;
 let isMusicPlaying = false;
 let musicOscillators = [];
+let currentTrack = 0;
+let musicTimeouts = [];
 
 // Initialize audio context (must be called after user interaction)
 export function initAudio() {
@@ -377,37 +379,45 @@ export function playMagnet() {
 
 // === BACKGROUND MUSIC ===
 
+// Track definitions
+const TRACKS = [
+  { name: 'DEBUG ZONE', bpm: 140, bassPattern: [0, 0, 7, 7, 5, 5, 3, 3], arpPattern: [0, 4, 7, 12, 7, 4], bassRoot: 110, arpRoot: 220, bassType: 'square', arpType: 'triangle' },
+  { name: 'MEMORY BANKS', bpm: 128, bassPattern: [0, 0, 5, 5, 7, 7, 10, 10], arpPattern: [0, 3, 7, 10, 12, 10, 7, 3], bassRoot: 82.4, arpRoot: 329.63, bassType: 'sawtooth', arpType: 'sine' },
+  { name: 'NETWORK LAYER', bpm: 150, bassPattern: [0, 0, 0, 5, 7, 7, 5, 3], arpPattern: [0, 5, 7, 12, 5, 7, 12, 17], bassRoot: 98, arpRoot: 196, bassType: 'square', arpType: 'square' },
+  { name: 'KERNEL SPACE', bpm: 160, bassPattern: [0, 3, 5, 0, 7, 5, 3, 0], arpPattern: [0, 4, 7, 11, 12, 11, 7, 4], bassRoot: 73.4, arpRoot: 293.66, bassType: 'sawtooth', arpType: 'triangle' },
+  { name: 'BOSS FIGHT', bpm: 170, bassPattern: [0, 0, 12, 12, 0, 0, 10, 10], arpPattern: [0, 3, 6, 9, 12, 9, 6, 3], bassRoot: 55, arpRoot: 220, bassType: 'sawtooth', arpType: 'sawtooth' }
+];
+
 // Chiptune-style background music
-export function startMusic() {
-  if (!audioContext || isMusicPlaying) return;
+export function startMusic(trackIndex = 0) {
+  if (!audioContext) return;
+
+  // Stop current music first
+  if (isMusicPlaying) {
+    stopMusic();
+  }
+
   isMusicPlaying = true;
+  currentTrack = trackIndex % TRACKS.length;
+  const track = TRACKS[currentTrack];
 
-  // Bass line pattern (in semitones from A2 = 110Hz)
-  const bassPattern = [0, 0, 7, 7, 5, 5, 3, 3];
-  const bassRoot = 110;
-
-  // Arpeggio pattern
-  const arpPattern = [0, 4, 7, 12, 7, 4];
-  const arpRoot = 220;
+  const bpm = track.bpm;
+  const beatDuration = 60 / bpm;
+  const sixteenthDuration = beatDuration / 4;
 
   let bassIndex = 0;
   let arpIndex = 0;
-  let beat = 0;
-
-  const bpm = 140;
-  const beatDuration = 60 / bpm;
-  const sixteenthDuration = beatDuration / 4;
 
   function playBass() {
     if (!isMusicPlaying) return;
 
-    const semitone = bassPattern[bassIndex % bassPattern.length];
-    const freq = bassRoot * Math.pow(2, semitone / 12);
+    const semitone = track.bassPattern[bassIndex % track.bassPattern.length];
+    const freq = track.bassRoot * Math.pow(2, semitone / 12);
 
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
-    osc.type = 'square';
+    osc.type = track.bassType;
     osc.frequency.value = freq;
 
     gain.gain.setValueAtTime(0.15, audioContext.currentTime);
@@ -420,19 +430,20 @@ export function startMusic() {
     osc.stop(audioContext.currentTime + beatDuration);
 
     bassIndex++;
-    setTimeout(playBass, beatDuration * 1000);
+    const timeout = setTimeout(playBass, beatDuration * 1000);
+    musicTimeouts.push(timeout);
   }
 
   function playArp() {
     if (!isMusicPlaying) return;
 
-    const semitone = arpPattern[arpIndex % arpPattern.length];
-    const freq = arpRoot * Math.pow(2, semitone / 12);
+    const semitone = track.arpPattern[arpIndex % track.arpPattern.length];
+    const freq = track.arpRoot * Math.pow(2, semitone / 12);
 
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
-    osc.type = 'triangle';
+    osc.type = track.arpType;
     osc.frequency.value = freq;
 
     gain.gain.setValueAtTime(0.08, audioContext.currentTime);
@@ -445,7 +456,8 @@ export function startMusic() {
     osc.stop(audioContext.currentTime + sixteenthDuration);
 
     arpIndex++;
-    setTimeout(playArp, sixteenthDuration * 1000);
+    const timeout = setTimeout(playArp, sixteenthDuration * 1000);
+    musicTimeouts.push(timeout);
   }
 
   // Hi-hat pattern
@@ -477,19 +489,50 @@ export function startMusic() {
 
     noise.start();
 
-    setTimeout(playHiHat, sixteenthDuration * 1000);
+    const timeout = setTimeout(playHiHat, sixteenthDuration * 1000);
+    musicTimeouts.push(timeout);
+  }
+
+  // Kick drum (for faster tracks)
+  function playKick() {
+    if (!isMusicPlaying) return;
+
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, audioContext.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, audioContext.currentTime + 0.1);
+
+    gain.gain.setValueAtTime(0.2, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+
+    osc.connect(gain);
+    gain.connect(musicGain);
+
+    osc.start();
+    osc.stop(audioContext.currentTime + 0.15);
+
+    const timeout = setTimeout(playKick, beatDuration * 1000);
+    musicTimeouts.push(timeout);
   }
 
   // Start all parts
   playBass();
-  setTimeout(playArp, 100);
-  setTimeout(playHiHat, 50);
+  musicTimeouts.push(setTimeout(playArp, 100));
+  musicTimeouts.push(setTimeout(playHiHat, 50));
+  if (bpm >= 150) {
+    musicTimeouts.push(setTimeout(playKick, 200));
+  }
 
-  console.log('🎵 Music started');
+  console.log(`🎵 Music started: ${track.name}`);
 }
 
 export function stopMusic() {
   isMusicPlaying = false;
+  // Clear all music timeouts
+  musicTimeouts.forEach(t => clearTimeout(t));
+  musicTimeouts = [];
   console.log('🎵 Music stopped');
 }
 
@@ -497,9 +540,27 @@ export function toggleMusic() {
   if (isMusicPlaying) {
     stopMusic();
   } else {
-    startMusic();
+    startMusic(currentTrack);
   }
   return isMusicPlaying;
+}
+
+// Change to a specific track (0-4)
+export function setTrack(trackIndex) {
+  currentTrack = trackIndex % TRACKS.length;
+  if (isMusicPlaying) {
+    stopMusic();
+    startMusic(currentTrack);
+  }
+}
+
+// Get current track info
+export function getCurrentTrack() {
+  return { index: currentTrack, name: TRACKS[currentTrack].name };
+}
+
+export function getTrackCount() {
+  return TRACKS.length;
 }
 
 // Volume controls

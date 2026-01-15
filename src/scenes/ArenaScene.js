@@ -47,10 +47,20 @@ export default class ArenaScene extends Phaser.Scene {
       pierce: { attackRate: 0.8, damage: 1.5, projectiles: 1, pierce: true, color: 0x0099ff },
       orbital: { attackRate: 0, damage: 2, projectiles: 0, pierce: true, color: 0xaa44ff },
       rapid: { attackRate: 3, damage: 0.5, projectiles: 1, pierce: false, color: 0xffcc00 },
+      // New weapons
+      homing: { attackRate: 0.7, damage: 1.2, projectiles: 1, pierce: false, color: 0x00ff88, special: 'homing' },
+      bounce: { attackRate: 1, damage: 0.8, projectiles: 2, pierce: false, color: 0x88ff00, special: 'bounce', bounces: 3 },
+      aoe: { attackRate: 0.5, damage: 0.6, projectiles: 0, pierce: true, color: 0xff4488, special: 'aoe', radius: 100 },
+      freeze: { attackRate: 0.8, damage: 0.9, projectiles: 1, pierce: false, color: 0x88ffff, special: 'freeze', slowDuration: 2000 },
       // Rare weapons - special effects
       rmrf: { attackRate: 0, damage: 0, projectiles: 0, pierce: false, color: 0xff0000, special: 'clearAll' },
       sudo: { attackRate: 2, damage: 3, projectiles: 1, pierce: true, color: 0xffd700, special: 'godMode' },
-      forkbomb: { attackRate: 1.5, damage: 0.6, projectiles: 3, pierce: false, color: 0xff00ff, special: 'fork' }
+      forkbomb: { attackRate: 1.5, damage: 0.6, projectiles: 3, pierce: false, color: 0xff00ff, special: 'fork' },
+      // Melee weapons
+      sword: { attackRate: 1.2, damage: 1.5, projectiles: 0, pierce: false, color: 0xcccccc, melee: true, meleeType: 'slash', range: 50 },
+      spear: { attackRate: 0.8, damage: 1.2, projectiles: 0, pierce: true, color: 0x8b4513, melee: true, meleeType: 'thrust', range: 80, pierces: 3 },
+      boomerang: { attackRate: 0.6, damage: 1.0, projectiles: 1, pierce: false, color: 0xdaa520, melee: true, meleeType: 'return', range: 150 },
+      kunai: { attackRate: 2.0, damage: 0.8, projectiles: 3, pierce: false, color: 0x2f2f2f, melee: true, meleeType: 'throw', range: 120 }
     };
 
     // Boss definitions
@@ -97,12 +107,14 @@ export default class ArenaScene extends Phaser.Scene {
       }
     };
 
-    // Stage definitions
+    // Stage definitions with enhanced visual properties
     this.stages = [
-      { name: 'DEBUG ZONE', startWave: 1, bgColor: 0x0a0a1a, gridColor: 0x00ffff, nodeColor: 0x00ffff },
-      { name: 'MEMORY BANKS', startWave: 40, bgColor: 0x0a001a, gridColor: 0xaa00ff, nodeColor: 0xff00ff },
-      { name: 'NETWORK LAYER', startWave: 80, bgColor: 0x001a0a, gridColor: 0x00ff00, nodeColor: 0x00ff88 },
-      { name: 'KERNEL SPACE', startWave: 120, bgColor: 0x1a0a0a, gridColor: 0xff0000, nodeColor: 0xff4400 }
+      { name: 'DEBUG ZONE', startWave: 1, bgColor: 0x0a0a1a, gridColor: 0x00ffff, nodeColor: 0x00ffff, particleColor: 0x00ffff, glowIntensity: 0.3 },
+      { name: 'MEMORY BANKS', startWave: 25, bgColor: 0x0a001a, gridColor: 0xaa00ff, nodeColor: 0xff00ff, particleColor: 0xaa00ff, glowIntensity: 0.4 },
+      { name: 'NETWORK LAYER', startWave: 50, bgColor: 0x001a0a, gridColor: 0x00ff00, nodeColor: 0x00ff88, particleColor: 0x00ff00, glowIntensity: 0.35 },
+      { name: 'KERNEL SPACE', startWave: 75, bgColor: 0x1a0a0a, gridColor: 0xff0000, nodeColor: 0xff4400, particleColor: 0xff4400, glowIntensity: 0.5 },
+      { name: 'CLOUD CLUSTER', startWave: 100, bgColor: 0x0a0a1a, gridColor: 0x4488ff, nodeColor: 0x88aaff, particleColor: 0x4488ff, glowIntensity: 0.4 },
+      { name: 'SINGULARITY', startWave: 150, bgColor: 0x050510, gridColor: 0xffffff, nodeColor: 0xffaa00, particleColor: 0xffd700, glowIntensity: 0.6 }
     ];
 
     // Current stage
@@ -140,7 +152,16 @@ export default class ArenaScene extends Phaser.Scene {
     this.evolutionRecipes = {
       'spread+pierce': { result: 'laserbeam', name: 'LASER BEAM', attackRate: 1.2, damage: 2.5, projectiles: 3, pierce: true, color: 0xff0088 },
       'orbital+rapid': { result: 'plasmaorb', name: 'PLASMA ORB', attackRate: 0, damage: 3, projectiles: 0, pierce: true, color: 0x00ffaa, orbitalCount: 5 },
-      'pierce+rapid': { result: 'chainlightning', name: 'CHAIN LIGHTNING', attackRate: 2.5, damage: 1.8, projectiles: 1, pierce: false, color: 0x00aaff, chains: 3 }
+      'pierce+rapid': { result: 'chainlightning', name: 'CHAIN LIGHTNING', attackRate: 2.5, damage: 1.8, projectiles: 1, pierce: false, color: 0x00aaff, chains: 3 },
+      // New evolutions
+      'spread+rapid': { result: 'bullethell', name: 'BULLET HELL', attackRate: 4, damage: 0.4, projectiles: 8, pierce: false, color: 0xff6600 },
+      'orbital+spread': { result: 'ringoffire', name: 'RING OF FIRE', attackRate: 0, damage: 2.5, projectiles: 0, pierce: true, color: 0xff4400, orbitalCount: 8 },
+      'homing+pierce': { result: 'seekingmissile', name: 'SEEKING MISSILE', attackRate: 0.5, damage: 4, projectiles: 1, pierce: true, color: 0x00ffcc, special: 'homing' },
+      'bounce+spread': { result: 'chaosbounce', name: 'CHAOS BOUNCE', attackRate: 1.2, damage: 1, projectiles: 5, pierce: false, color: 0xaaff00, special: 'bounce', bounces: 5 },
+      'aoe+orbital': { result: 'deathaura', name: 'DEATH AURA', attackRate: 0, damage: 1.5, projectiles: 0, pierce: true, color: 0xff00aa, special: 'aura', radius: 150 },
+      'freeze+pierce': { result: 'icelance', name: 'ICE LANCE', attackRate: 0.6, damage: 2.5, projectiles: 1, pierce: true, color: 0x00ffff, special: 'freeze', slowDuration: 3000 },
+      'homing+rapid': { result: 'swarm', name: 'SWARM', attackRate: 3, damage: 0.8, projectiles: 3, pierce: false, color: 0x88ff88, special: 'homing' },
+      'freeze+aoe': { result: 'blizzard', name: 'BLIZZARD', attackRate: 0.3, damage: 0.8, projectiles: 0, pierce: true, color: 0xaaffff, special: 'freezeAoe', radius: 120 }
     };
 
     // Collected weapon types for evolution
@@ -175,6 +196,12 @@ export default class ArenaScene extends Phaser.Scene {
     // Create orbital weapons group (circle around player)
     this.orbitals = this.add.group();
 
+    // Create legendary weapons group (permanent spinning weapons)
+    this.legendaryWeapons = this.add.group();
+
+    // Spawn equipped legendary weapon if player has one
+    this.spawnEquippedLegendary();
+
     // Setup input
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd = this.input.keyboard.addKeys({
@@ -182,6 +209,20 @@ export default class ArenaScene extends Phaser.Scene {
       down: Phaser.Input.Keyboard.KeyCodes.S,
       left: Phaser.Input.Keyboard.KeyCodes.A,
       right: Phaser.Input.Keyboard.KeyCodes.D
+    });
+
+    // Secret creator key - Press G to unlock Hunter's Warglaive
+    this.input.keyboard.on('keydown-G', () => {
+      const legendaries = window.VIBE_LEGENDARIES;
+      if (legendaries && !legendaries.hasUnlocked('huntersWarglaive')) {
+        legendaries.forceUnlock('huntersWarglaive');
+        legendaries.equip('huntersWarglaive');
+        this.showLegendaryDrop(this.player.x, this.player.y, 'huntersWarglaive', legendaries.weapons.huntersWarglaive);
+        this.spawnEquippedLegendary();
+      } else if (legendaries && legendaries.hasUnlocked('huntersWarglaive') && !legendaries.equipped) {
+        legendaries.equip('huntersWarglaive');
+        this.spawnEquippedLegendary();
+      }
     });
 
     // Setup collisions
@@ -350,13 +391,14 @@ export default class ArenaScene extends Phaser.Scene {
     graphics.setDepth(-10);
 
     // === ANIMATED FLOATING PARTICLES ===
-    for (let i = 0; i < 20; i++) {
+    const particleCount = 20 + Math.floor(stage.glowIntensity * 30); // More particles in intense stages
+    for (let i = 0; i < particleCount; i++) {
       const particle = this.add.circle(
         Phaser.Math.Between(0, 800),
         Phaser.Math.Between(0, 600),
-        Phaser.Math.Between(1, 3),
-        stage.nodeColor,
-        Phaser.Math.FloatBetween(0.1, 0.4)
+        Phaser.Math.Between(1, 4),
+        stage.particleColor || stage.nodeColor,
+        Phaser.Math.FloatBetween(0.1, stage.glowIntensity || 0.4)
       );
       particle.setDepth(-5);
       this.bgParticles.push(particle);
@@ -367,10 +409,42 @@ export default class ArenaScene extends Phaser.Scene {
         y: particle.y + Phaser.Math.Between(-100, 100),
         x: particle.x + Phaser.Math.Between(-50, 50),
         alpha: { from: particle.alpha, to: 0 },
+        scale: { from: 1, to: Phaser.Math.FloatBetween(0.5, 1.5) },
         duration: Phaser.Math.Between(3000, 8000),
         ease: 'Sine.easeInOut',
         repeat: -1,
         yoyo: true
+      });
+    }
+
+    // === STAGE-SPECIFIC EFFECTS ===
+    // Singularity stage: add vortex effect in center
+    if (this.currentStage >= 5) {
+      const vortex = this.add.circle(400, 300, 80, 0x000000, 0.3);
+      vortex.setStrokeStyle(3, 0xffd700, 0.5);
+      vortex.setDepth(-4);
+      this.bgParticles.push(vortex);
+
+      this.tweens.add({
+        targets: vortex,
+        scale: { from: 0.8, to: 1.2 },
+        alpha: { from: 0.3, to: 0.1 },
+        duration: 2000,
+        ease: 'Sine.easeInOut',
+        repeat: -1,
+        yoyo: true
+      });
+
+      // Inner vortex ring
+      const innerVortex = this.add.circle(400, 300, 40, 0xffd700, 0.2);
+      innerVortex.setDepth(-3);
+      this.bgParticles.push(innerVortex);
+
+      this.tweens.add({
+        targets: innerVortex,
+        angle: 360,
+        duration: 10000,
+        repeat: -1
       });
     }
 
@@ -433,6 +507,9 @@ export default class ArenaScene extends Phaser.Scene {
   showStageTransition() {
     const stage = this.stages[this.currentStage];
 
+    // Change music track to match stage
+    Audio.setTrack(this.currentStage);
+
     // Flash screen
     this.cameras.main.flash(500, 255, 255, 255);
 
@@ -470,12 +547,49 @@ export default class ArenaScene extends Phaser.Scene {
   getStats() {
     // Stats scale with level - more aggressive scaling
     const level = window.VIBE_CODER.level;
+
+    // Apply upgrade bonuses
+    const upgrades = window.VIBE_UPGRADES || { getBonus: () => 1 };
+    const damageBonus = upgrades.getBonus('damage');
+    const healthBonus = upgrades.getBonus('health');
+    const speedBonus = upgrades.getBonus('speed');
+    const attackRateBonus = upgrades.getBonus('attackRate');
+
+    const baseSpeed = this.baseStats.speed + (level * 8);
+    const baseAttackRate = Math.max(100, this.baseStats.attackRate - (level * 15));
+    const baseDamage = this.baseStats.attackDamage + (level * 5);
+    const baseHealth = this.baseStats.maxHealth + (level * 20);
+
     return {
-      speed: this.baseStats.speed + (level * 8),
-      attackRate: Math.max(100, this.baseStats.attackRate - (level * 15)), // gets FAST
-      attackDamage: this.baseStats.attackDamage + (level * 5), // hits HARD
-      maxHealth: this.baseStats.maxHealth + (level * 20) // gets BEEFY
+      speed: Math.floor(baseSpeed * speedBonus),
+      attackRate: Math.max(50, Math.floor(baseAttackRate / attackRateBonus)), // lower is faster
+      attackDamage: Math.floor(baseDamage * damageBonus),
+      maxHealth: Math.floor(baseHealth * healthBonus)
     };
+  }
+
+  getCritChance() {
+    const upgrades = window.VIBE_UPGRADES || { getBonus: () => 1 };
+    const critBonus = (upgrades.getBonus('critChance') - 1); // convert 1.x to 0.x
+    return 0.1 + critBonus; // base 10% + upgrade bonus
+  }
+
+  getWeaponDurationBonus() {
+    const upgrades = window.VIBE_UPGRADES || { getBonus: () => 1 };
+    return upgrades.getBonus('weaponDuration');
+  }
+
+  getEnemyAnimKey(enemyType) {
+    // Map enemy types to their animation keys
+    const animMap = {
+      'bug': 'bug-walk',
+      'glitch': 'glitch-move',
+      'memory-leak': 'memory-leak-pulse',
+      'syntax-error': 'syntax-error-flash',
+      'infinite-loop': 'infinite-loop-spin',
+      'race-condition': 'race-condition-flicker'
+    };
+    return animMap[enemyType] || null;
   }
 
   createHUD() {
@@ -620,13 +734,32 @@ export default class ArenaScene extends Phaser.Scene {
       pierce: '#0099ff',
       orbital: '#aa44ff',
       rapid: '#ffcc00',
+      // New weapons
+      homing: '#00ff88',
+      bounce: '#88ff00',
+      aoe: '#ff4488',
+      freeze: '#88ffff',
+      // Rare weapons
       rmrf: '#ff0000',
       sudo: '#ffd700',
       forkbomb: '#ff00ff',
       // Evolved weapons
       laserbeam: '#ff0088',
       plasmaorb: '#00ffaa',
-      chainlightning: '#00aaff'
+      chainlightning: '#00aaff',
+      bullethell: '#ff6600',
+      ringoffire: '#ff4400',
+      seekingmissile: '#00ffcc',
+      chaosbounce: '#aaff00',
+      deathaura: '#ff00aa',
+      icelance: '#00ffff',
+      swarm: '#88ff88',
+      blizzard: '#aaffff',
+      // Melee weapons
+      sword: '#cccccc',
+      spear: '#8b4513',
+      boomerang: '#daa520',
+      kunai: '#4a4a4a'
     };
     const weaponLabel = this.currentWeapon.isEvolved ? `★${this.currentWeapon.type.toUpperCase()}★` : this.currentWeapon.type.toUpperCase();
     this.weaponText.setText(`WEAPON: ${weaponLabel}`);
@@ -865,6 +998,9 @@ export default class ArenaScene extends Phaser.Scene {
     // Boss warning sound!
     Audio.playBossWarning();
 
+    // Switch to boss fight music (track 4)
+    Audio.setTrack(4);
+
     // Boss entrance effect
     this.cameras.main.shake(1000, 0.02);
     this.cameras.main.flash(300, 255, 0, 0);
@@ -933,6 +1069,12 @@ export default class ArenaScene extends Phaser.Scene {
     enemy.enemyType = type;
     enemy.behavior = typeData.behavior;
 
+    // Play enemy animation based on type
+    const animKey = this.getEnemyAnimKey(type);
+    if (animKey && this.anims.exists(animKey)) {
+      enemy.play(animKey);
+    }
+
     // Behavior-specific setup
     if (typeData.behavior === 'teleport') {
       enemy.lastTeleport = 0;
@@ -993,15 +1135,34 @@ export default class ArenaScene extends Phaser.Scene {
 
   autoAttack() {
     // Orbital weapons don't use normal attack - they're always active
-    if (this.currentWeapon.type === 'orbital') return;
+    if (this.currentWeapon.type === 'orbital' || this.currentWeapon.type === 'ringoffire' ||
+        this.currentWeapon.type === 'plasmaorb' || this.currentWeapon.type === 'deathaura') return;
 
     const now = this.time.now;
     const stats = this.getStats();
-    const weapon = this.weaponTypes[this.currentWeapon.type];
+    let weapon = this.weaponTypes[this.currentWeapon.type];
+
+    // Check evolution recipes for evolved weapons
+    if (!weapon && this.evolutionRecipes) {
+      for (const recipe of Object.values(this.evolutionRecipes)) {
+        if (recipe.result === this.currentWeapon.type) {
+          weapon = recipe;
+          break;
+        }
+      }
+    }
+    if (!weapon) weapon = this.weaponTypes.basic;
 
     // Apply weapon's attack rate modifier
-    const attackDelay = stats.attackRate / weapon.attackRate;
+    const attackDelay = weapon.attackRate > 0 ? stats.attackRate / weapon.attackRate : 999999;
     if (now - this.lastAttackTime < attackDelay) return;
+
+    // Handle AOE weapons (no projectiles, damage around player)
+    if (weapon.special === 'aoe' || weapon.special === 'aura' || weapon.special === 'freezeAoe') {
+      this.lastAttackTime = now;
+      this.doAoeAttack(weapon, stats);
+      return;
+    }
 
     // Find nearest enemy
     let nearest = null;
@@ -1052,11 +1213,35 @@ export default class ArenaScene extends Phaser.Scene {
           projectile.forkDepth = 0;
         }
 
+        // Homing projectiles track enemies
+        if (weapon.special === 'homing') {
+          projectile.isHoming = true;
+          projectile.homingTarget = nearest;
+        }
+
+        // Bounce projectiles bounce off walls
+        if (weapon.special === 'bounce') {
+          projectile.isBounce = true;
+          projectile.bouncesLeft = weapon.bounces || 3;
+          projectile.body.setBounce(1, 1);
+          projectile.body.setCollideWorldBounds(true);
+          projectile.body.onWorldBounds = true;
+        }
+
+        // Freeze projectiles slow enemies
+        if (weapon.special === 'freeze') {
+          projectile.isFreeze = true;
+          projectile.slowDuration = weapon.slowDuration || 2000;
+        }
+
         // Set velocity
         this.physics.velocityFromRotation(angle, 400, projectile.body.velocity);
 
-        // Pierce projectiles last longer
-        const lifetime = weapon.pierce ? 2000 : 1000;
+        // Pierce projectiles last longer, bounce last even longer
+        let lifetime = weapon.pierce ? 2000 : 1000;
+        if (weapon.special === 'bounce') lifetime = 3000;
+        if (weapon.special === 'homing') lifetime = 2500;
+
         this.time.delayedCall(lifetime, () => {
           if (projectile.active) projectile.destroy();
         });
@@ -1068,6 +1253,75 @@ export default class ArenaScene extends Phaser.Scene {
       // Play shoot sound
       Audio.playShoot();
     }
+  }
+
+  doAoeAttack(weapon, stats) {
+    const radius = weapon.radius || 100;
+    const damage = Math.floor(stats.attackDamage * weapon.damage);
+    const isFreeze = weapon.special === 'freezeAoe';
+
+    // Visual effect - expanding ring
+    const ring = this.add.circle(this.player.x, this.player.y, 10, weapon.color, 0.3);
+    ring.setStrokeStyle(3, weapon.color, 0.8);
+
+    this.tweens.add({
+      targets: ring,
+      scale: radius / 10,
+      alpha: 0,
+      duration: 300,
+      onComplete: () => ring.destroy()
+    });
+
+    // Damage all enemies in radius
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active) return;
+      const dist = Phaser.Math.Distance.Between(
+        this.player.x, this.player.y,
+        enemy.x, enemy.y
+      );
+      if (dist < radius) {
+        enemy.health -= damage;
+        this.showDamageNumber(enemy.x, enemy.y, damage, false);
+
+        // Freeze effect
+        if (isFreeze && !enemy.isFrozen) {
+          this.applyFreeze(enemy, weapon.slowDuration || 2000);
+        }
+
+        // Flash
+        enemy.setTint(weapon.color);
+        this.time.delayedCall(100, () => {
+          if (enemy.active) enemy.clearTint();
+        });
+
+        // Check death
+        if (enemy.health <= 0) {
+          window.VIBE_CODER.addXP(enemy.xpValue);
+          window.VIBE_CODER.kills++;
+          enemy.destroy();
+          this.updateHUD();
+        }
+      }
+    });
+
+    Audio.playShoot();
+  }
+
+  applyFreeze(enemy, duration) {
+    if (enemy.isFrozen) return;
+
+    enemy.isFrozen = true;
+    enemy.originalSpeed = enemy.speed;
+    enemy.speed = enemy.speed * 0.3; // 70% slow
+    enemy.setTint(0x88ffff);
+
+    this.time.delayedCall(duration, () => {
+      if (enemy.active) {
+        enemy.isFrozen = false;
+        enemy.speed = enemy.originalSpeed;
+        enemy.clearTint();
+      }
+    });
   }
 
   showMusicStatus(isPlaying) {
@@ -1349,6 +1603,7 @@ export default class ArenaScene extends Phaser.Scene {
   spawnWeaponDrop(x, y, forceRare = false) {
     let weaponType;
     let textureKey;
+    let isMelee = false;
 
     if (forceRare) {
       // Rare weapons from bosses
@@ -1356,16 +1611,30 @@ export default class ArenaScene extends Phaser.Scene {
       weaponType = Phaser.Utils.Array.GetRandom(rarePool);
       textureKey = `weapon-${weaponType}`;
     } else {
-      // Normal weapon drops
-      const weaponPool = ['spread', 'pierce', 'rapid'];
-      if (Math.random() < 0.2) weaponPool.push('orbital');
-      weaponType = Phaser.Utils.Array.GetRandom(weaponPool);
-      textureKey = `weapon-${weaponType}`;
+      // Normal weapon drops - weighted pools
+      const commonPool = ['spread', 'pierce', 'rapid', 'homing', 'bounce'];
+      const uncommonPool = ['orbital', 'aoe', 'freeze'];
+      const meleePool = ['sword', 'spear', 'boomerang', 'kunai'];
+
+      // 60% common, 25% uncommon, 15% melee
+      const roll = Math.random();
+      if (roll < 0.6) {
+        weaponType = Phaser.Utils.Array.GetRandom(commonPool);
+        textureKey = `weapon-${weaponType}`;
+      } else if (roll < 0.85) {
+        weaponType = Phaser.Utils.Array.GetRandom(uncommonPool);
+        textureKey = `weapon-${weaponType}`;
+      } else {
+        weaponType = Phaser.Utils.Array.GetRandom(meleePool);
+        textureKey = `melee-${weaponType}`;
+        isMelee = true;
+      }
     }
 
     const drop = this.weaponDrops.create(x, y, textureKey);
     drop.weaponType = weaponType;
     drop.isRare = forceRare;
+    drop.isMelee = isMelee;
 
     // Bounce animation
     this.tweens.add({
@@ -1448,17 +1717,19 @@ export default class ArenaScene extends Phaser.Scene {
     const evolvedWeapon = this.checkWeaponEvolution(weaponType);
     const finalWeaponType = evolvedWeapon || weaponType;
 
-    // Set new weapon with duration (rare/evolved weapons last longer)
+    // Set new weapon with duration (rare/evolved weapons last longer, apply upgrade bonus)
     const isEvolved = evolvedWeapon !== null;
-    const duration = isEvolved ? 25000 : (isRare ? 20000 : 15000);
+    const baseDuration = isEvolved ? 25000 : (isRare ? 20000 : 15000);
+    const duration = Math.floor(baseDuration * this.getWeaponDurationBonus());
     this.currentWeapon = {
       type: finalWeaponType,
       duration: duration,
       isEvolved: isEvolved
     };
 
-    // If orbital, create orbital projectiles
-    if (weaponType === 'orbital') {
+    // If orbital-type weapon, create orbital projectiles
+    const orbitalWeapons = ['orbital', 'ringoffire', 'plasmaorb', 'deathaura'];
+    if (orbitalWeapons.includes(finalWeaponType)) {
       this.createOrbitals();
     }
 
@@ -1468,6 +1739,10 @@ export default class ArenaScene extends Phaser.Scene {
       pierce: '💎 PIERCING',
       orbital: '🌀 ORBITAL',
       rapid: '⚡ RAPID FIRE',
+      homing: '🎯 HOMING',
+      bounce: '🏀 BOUNCE',
+      aoe: '💥 AOE BLAST',
+      freeze: '❄️ FREEZE',
       forkbomb: '💣 FORK BOMB'
     };
 
@@ -1668,12 +1943,29 @@ export default class ArenaScene extends Phaser.Scene {
     this.clearOrbitals();
 
     const stats = this.getStats();
-    const weapon = this.weaponTypes.orbital;
+    const weaponType = this.currentWeapon.type;
 
-    // Create 3 orbiting projectiles
-    for (let i = 0; i < 3; i++) {
+    // Get the weapon data - check evolved weapons first
+    let weapon = this.weaponTypes[weaponType];
+    if (!weapon) {
+      // Check evolution recipes for evolved orbital weapons
+      for (const recipe of Object.values(this.evolutionRecipes)) {
+        if (recipe.result === weaponType) {
+          weapon = recipe;
+          break;
+        }
+      }
+    }
+    if (!weapon) weapon = this.weaponTypes.orbital;
+
+    // Determine orbital count based on weapon type
+    const orbitalCount = weapon.orbitalCount || 3;
+    const angleStep = 360 / orbitalCount;
+
+    // Create orbiting projectiles
+    for (let i = 0; i < orbitalCount; i++) {
       const orbital = this.add.circle(0, 0, 12, weapon.color);
-      orbital.angle = (i * 120) * (Math.PI / 180);
+      orbital.angle = (i * angleStep) * (Math.PI / 180);
       orbital.damage = Math.floor(stats.attackDamage * weapon.damage);
       this.orbitals.add(orbital);
     }
@@ -1833,7 +2125,8 @@ export default class ArenaScene extends Phaser.Scene {
   }
 
   updateOrbitals() {
-    if (this.currentWeapon.type !== 'orbital' || this.orbitals.getLength() === 0) return;
+    const orbitalWeapons = ['orbital', 'ringoffire', 'plasmaorb', 'deathaura'];
+    if (!orbitalWeapons.includes(this.currentWeapon.type) || this.orbitals.getLength() === 0) return;
 
     const radius = 80;
     const speed = 0.05;
@@ -1867,9 +2160,235 @@ export default class ArenaScene extends Phaser.Scene {
     });
   }
 
+  showDamageNumber(x, y, damage, isCrit = false) {
+    const color = isCrit ? '#ffff00' : '#ffffff';
+    const size = isCrit ? '20px' : '14px';
+    const text = isCrit ? `${damage}!` : `${damage}`;
+
+    const dmgText = this.add.text(
+      x + Phaser.Math.Between(-10, 10),
+      y - 10,
+      text,
+      {
+        fontFamily: 'monospace',
+        fontSize: size,
+        color: color,
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3
+      }
+    ).setOrigin(0.5);
+
+    // Float up and fade
+    this.tweens.add({
+      targets: dmgText,
+      y: dmgText.y - 40,
+      alpha: 0,
+      scale: isCrit ? 1.5 : 1,
+      duration: 800,
+      ease: 'Power2',
+      onComplete: () => dmgText.destroy()
+    });
+  }
+
+  // === LEGENDARY WEAPONS ===
+
+  spawnEquippedLegendary() {
+    const legendaries = window.VIBE_LEGENDARIES;
+    if (!legendaries) return;
+
+    const equipped = legendaries.getEquipped();
+    if (!equipped) return;
+
+    const stats = this.getStats();
+    const textureKey = `legendary-${equipped.key}`;
+
+    // Create the legendary weapon sprites that orbit the player
+    for (let i = 0; i < equipped.orbitalCount; i++) {
+      const angle = (i / equipped.orbitalCount) * Math.PI * 2;
+      const weapon = this.add.sprite(0, 0, textureKey);
+      weapon.angle = angle;
+      weapon.spinSpeed = equipped.spinSpeed;
+      weapon.damage = Math.floor(stats.attackDamage * equipped.damage);
+      weapon.radius = equipped.radius;
+      weapon.legendaryKey = equipped.key;
+      weapon.setDepth(10);
+      this.legendaryWeapons.add(weapon);
+    }
+
+    // Show equipped notification
+    const equipText = this.add.text(400, 150, `⚔️ ${equipped.name} EQUIPPED ⚔️`, {
+      fontFamily: 'monospace',
+      fontSize: '18px',
+      color: '#00ff66',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: equipText,
+      alpha: 0,
+      y: 100,
+      duration: 3000,
+      onComplete: () => equipText.destroy()
+    });
+  }
+
+  updateLegendaryWeapons() {
+    if (this.legendaryWeapons.getLength() === 0) return;
+
+    const stats = this.getStats();
+
+    this.legendaryWeapons.children.each((weapon) => {
+      // Spin around player
+      weapon.angle += weapon.spinSpeed;
+      weapon.x = this.player.x + Math.cos(weapon.angle) * weapon.radius;
+      weapon.y = this.player.y + Math.sin(weapon.angle) * weapon.radius;
+
+      // Rotate the sprite to face outward
+      weapon.rotation = weapon.angle + Math.PI / 2;
+
+      // Check collision with enemies
+      this.enemies.children.each((enemy) => {
+        if (!enemy.active) return;
+        const dist = Phaser.Math.Distance.Between(weapon.x, weapon.y, enemy.x, enemy.y);
+        if (dist < 30) {
+          // Cooldown check per enemy
+          const now = this.time.now;
+          if (!enemy.lastLegendaryHit || now - enemy.lastLegendaryHit > 200) {
+            enemy.lastLegendaryHit = now;
+
+            // Deal damage
+            const damage = Math.floor(stats.attackDamage * 5); // Legendary damage
+            enemy.health -= damage;
+            this.showDamageNumber(enemy.x, enemy.y, damage, true); // Always looks like crit
+
+            // Flash effect
+            enemy.setTint(0x00ff66);
+            this.time.delayedCall(50, () => {
+              if (enemy.active) enemy.clearTint();
+            });
+
+            if (enemy.health <= 0) {
+              // Check for legendary drop (super rare)
+              this.checkLegendaryDrop(enemy.x, enemy.y);
+
+              window.VIBE_CODER.addXP(enemy.xpValue);
+              window.VIBE_CODER.kills++;
+              if (Math.random() < 0.15) this.spawnWeaponDrop(enemy.x, enemy.y);
+              enemy.destroy();
+              this.updateHUD();
+            }
+          }
+        }
+      });
+    });
+  }
+
+  checkLegendaryDrop(x, y) {
+    const legendaries = window.VIBE_LEGENDARIES;
+    if (!legendaries) return;
+
+    // Check each legendary for drop
+    for (const [key, weapon] of Object.entries(legendaries.weapons)) {
+      if (!legendaries.hasUnlocked(key) && Math.random() < weapon.dropRate) {
+        // LEGENDARY DROP!
+        legendaries.unlock(key);
+        this.showLegendaryDrop(x, y, key, weapon);
+        return; // Only one legendary per kill
+      }
+    }
+  }
+
+  showLegendaryDrop(x, y, key, weapon) {
+    // Epic camera effects
+    this.cameras.main.flash(1000, 255, 215, 0);
+    this.cameras.main.shake(500, 0.03);
+
+    // Stop time briefly
+    this.physics.pause();
+    this.time.delayedCall(1500, () => this.physics.resume());
+
+    // Legendary announcement
+    const announceText = this.add.text(400, 200, '⚔️ LEGENDARY WEAPON ⚔️', {
+      fontFamily: 'monospace',
+      fontSize: '32px',
+      color: '#ffd700',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 6
+    }).setOrigin(0.5);
+
+    const nameText = this.add.text(400, 250, weapon.name, {
+      fontFamily: 'monospace',
+      fontSize: '28px',
+      color: '#00ff66',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+
+    const descText = this.add.text(400, 290, weapon.desc, {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 2
+    }).setOrigin(0.5);
+
+    const equipText = this.add.text(400, 330, 'PERMANENTLY UNLOCKED!', {
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      color: '#ffff00',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // Spawn the weapon sprite at drop location
+    const textureKey = `legendary-${key}`;
+    const dropSprite = this.add.sprite(x, y, textureKey);
+    dropSprite.setScale(2);
+
+    // Animate it flying to center
+    this.tweens.add({
+      targets: dropSprite,
+      x: 400,
+      y: 200,
+      scale: 3,
+      duration: 1000,
+      ease: 'Power2',
+      onComplete: () => {
+        this.tweens.add({
+          targets: [dropSprite, announceText, nameText, descText, equipText],
+          alpha: 0,
+          duration: 2000,
+          delay: 2000,
+          onComplete: () => {
+            dropSprite.destroy();
+            announceText.destroy();
+            nameText.destroy();
+            descText.destroy();
+            equipText.destroy();
+          }
+        });
+      }
+    });
+
+    // Play epic sound
+    Audio.playEvolution();
+  }
+
   hitEnemy(projectile, enemy) {
+    // Check for critical hit (base 10% + crit upgrade bonus)
+    const critChance = this.getCritChance();
+    const isCrit = Math.random() < critChance;
+    const finalDamage = isCrit ? projectile.damage * 2 : projectile.damage;
+
     // Deal damage
-    enemy.health -= projectile.damage;
+    enemy.health -= finalDamage;
+
+    // Show damage number
+    this.showDamageNumber(enemy.x, enemy.y, finalDamage, isCrit);
 
     // Play hit sound
     Audio.playHit();
@@ -1891,6 +2410,11 @@ export default class ArenaScene extends Phaser.Scene {
           if (child.active) child.destroy();
         });
       }
+    }
+
+    // Freeze special: slow enemy on hit
+    if (projectile.isFreeze && !enemy.isFrozen) {
+      this.applyFreeze(enemy, projectile.slowDuration || 2000);
     }
 
     // Only destroy non-piercing projectiles
@@ -1924,6 +2448,9 @@ export default class ArenaScene extends Phaser.Scene {
         if (this.currentBoss === enemy) {
           this.currentBoss = null;
         }
+
+        // Return to stage music
+        Audio.setTrack(this.currentStage);
 
         // Epic death effect
         this.cameras.main.shake(500, 0.03);
@@ -2073,6 +2600,32 @@ export default class ArenaScene extends Phaser.Scene {
       localStorage.setItem('vibeCoderHighScore', this.highScore.toString());
     }
 
+    // Award currency (BITS) based on performance
+    const waveBits = this.waveNumber * 5; // 5 bits per wave
+    const killBits = Math.floor(state.kills * 0.5); // 0.5 bits per kill
+    const xpBits = Math.floor(state.totalXP * 0.01); // 1 bit per 100 XP
+    const totalBits = waveBits + killBits + xpBits;
+
+    window.VIBE_UPGRADES.addCurrency(totalBits);
+
+    // Show bits earned
+    const bitsText = this.add.text(400, 200, `+${totalBits} BITS EARNED!`, {
+      fontFamily: 'monospace',
+      fontSize: '24px',
+      color: '#00ffff',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: bitsText,
+      y: bitsText.y - 50,
+      alpha: 0,
+      duration: 2000,
+      onComplete: () => bitsText.destroy()
+    });
+
     // Game over - respawn
     this.cameras.main.fade(500, 0, 0, 0);
 
@@ -2146,9 +2699,25 @@ export default class ArenaScene extends Phaser.Scene {
 
     this.player.setVelocity(vx * stats.speed, vy * stats.speed);
 
-    // Flip sprite based on movement
-    if (vx < 0) this.player.setFlipX(true);
-    if (vx > 0) this.player.setFlipX(false);
+    // Play appropriate animation based on movement
+    const isMoving = vx !== 0 || vy !== 0;
+    if (isMoving) {
+      // Determine primary direction
+      if (Math.abs(vx) > Math.abs(vy)) {
+        // Moving horizontally - use side walk animation
+        this.player.play('player-walk-side', true);
+        this.player.setFlipX(vx < 0);
+      } else if (vy < 0) {
+        // Moving up
+        this.player.play('player-walk-up', true);
+      } else {
+        // Moving down
+        this.player.play('player-walk-down', true);
+      }
+    } else {
+      // Idle animation
+      this.player.play('player-idle', true);
+    }
 
     // Move enemies toward player with unique behaviors
     this.enemies.children.each((enemy) => {
@@ -2228,10 +2797,67 @@ export default class ArenaScene extends Phaser.Scene {
       }
     });
 
+    // Update homing projectiles
+    this.updateHomingProjectiles();
+
     // Auto attack
     this.autoAttack();
 
     // Update orbital weapons
     this.updateOrbitals();
+
+    // Update legendary weapons (permanent spinning melee)
+    this.updateLegendaryWeapons();
+  }
+
+  updateHomingProjectiles() {
+    this.projectiles.children.each((projectile) => {
+      if (!projectile.active || !projectile.isHoming) return;
+
+      // Find nearest enemy to home in on
+      let target = projectile.homingTarget;
+
+      // If target is dead, find new one
+      if (!target || !target.active) {
+        let nearestDist = Infinity;
+        this.enemies.children.each((enemy) => {
+          if (!enemy.active) return;
+          const dist = Phaser.Math.Distance.Between(
+            projectile.x, projectile.y,
+            enemy.x, enemy.y
+          );
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            target = enemy;
+          }
+        });
+        projectile.homingTarget = target;
+      }
+
+      if (target && target.active) {
+        // Gradually turn toward target
+        const targetAngle = Phaser.Math.Angle.Between(
+          projectile.x, projectile.y,
+          target.x, target.y
+        );
+
+        const currentAngle = Math.atan2(projectile.body.velocity.y, projectile.body.velocity.x);
+        const turnSpeed = 0.08;
+
+        // Interpolate angle
+        let angleDiff = targetAngle - currentAngle;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+        const newAngle = currentAngle + angleDiff * turnSpeed;
+        const speed = 350;
+
+        projectile.setVelocity(
+          Math.cos(newAngle) * speed,
+          Math.sin(newAngle) * speed
+        );
+        projectile.setRotation(newAngle);
+      }
+    });
   }
 }
