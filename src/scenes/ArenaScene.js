@@ -131,12 +131,24 @@ export default class ArenaScene extends Phaser.Scene {
 
     // New enemy types with unique behaviors
     this.enemyTypes = {
+      // Original enemies
       bug: { health: 15, speed: 40, damage: 3, xpValue: 5, behavior: 'chase' },
       glitch: { health: 30, speed: 70, damage: 5, xpValue: 15, behavior: 'chase' },
       'memory-leak': { health: 60, speed: 25, damage: 10, xpValue: 30, behavior: 'chase' },
       'syntax-error': { health: 12, speed: 100, damage: 2, xpValue: 10, behavior: 'teleport', teleportCooldown: 3000 },
       'infinite-loop': { health: 40, speed: 50, damage: 4, xpValue: 20, behavior: 'orbit', orbitRadius: 120 },
-      'race-condition': { health: 25, speed: 60, damage: 6, xpValue: 25, behavior: 'erratic', speedVariance: 80 }
+      'race-condition': { health: 25, speed: 60, damage: 6, xpValue: 25, behavior: 'erratic', speedVariance: 80 },
+
+      // NEW Coding-themed enemies
+      'segfault': { health: 10, speed: 0, damage: 999, xpValue: 50, behavior: 'deathzone', lifespan: 8000, waveMin: 30 },
+      'dependency-hell': { health: 80, speed: 30, damage: 6, xpValue: 80, behavior: 'spawner', spawnInterval: 3000, maxMinions: 4, waveMin: 35 },
+      'stack-overflow': { health: 100, speed: 35, damage: 8, xpValue: 100, behavior: 'grow', growRate: 0.001, waveMin: 25 },
+
+      // NEW AI-themed enemies
+      'hallucination': { health: 1, speed: 50, damage: 0, xpValue: 1, behavior: 'fake', waveMin: 20 },
+      'token-overflow': { health: 40, speed: 45, damage: 5, xpValue: 40, behavior: 'growDamage', growRate: 0.0005, waveMin: 25 },
+      'context-loss': { health: 50, speed: 60, damage: 7, xpValue: 60, behavior: 'contextLoss', teleportCooldown: 2500, wanderChance: 0.3, waveMin: 30 },
+      'prompt-injection': { health: 60, speed: 40, damage: 5, xpValue: 100, behavior: 'hijack', hijackDuration: 5000, hijackCooldown: 10000, waveMin: 40 }
     };
 
     // Mini-boss definitions (appear at waves 10, 30, 50...)
@@ -1039,10 +1051,51 @@ export default class ArenaScene extends Phaser.Scene {
     if (this.waveNumber >= 12) spawnPool.push('infinite-loop');
     if (this.waveNumber >= 15) spawnPool.push('race-condition');
 
+    // NEW AI-themed enemies (wave 20+)
+    if (this.waveNumber >= 20) spawnPool.push('hallucination', 'hallucination');
+
+    // NEW enemies (wave 25+)
+    if (this.waveNumber >= 25) {
+      spawnPool.push('stack-overflow', 'token-overflow');
+    }
+
+    // NEW enemies (wave 30+)
+    if (this.waveNumber >= 30) {
+      spawnPool.push('segfault', 'context-loss');
+    }
+
+    // NEW enemies (wave 35+)
+    if (this.waveNumber >= 35) {
+      spawnPool.push('dependency-hell');
+    }
+
+    // NEW Prompt Injection (wave 40+) - rare and dangerous
+    if (this.waveNumber >= 40) {
+      spawnPool.push('prompt-injection');
+    }
+
     const type = Phaser.Utils.Array.GetRandom(spawnPool);
     const typeData = this.enemyTypes[type];
 
-    const enemy = this.enemies.create(x, y, type);
+    // Map enemy type to texture name
+    const textureMap = {
+      'bug': 'bug',
+      'glitch': 'glitch',
+      'memory-leak': 'memory-leak',
+      'syntax-error': 'syntax-error',
+      'infinite-loop': 'infinite-loop',
+      'race-condition': 'race-condition',
+      'segfault': 'enemy-segfault',
+      'dependency-hell': 'enemy-dependency-hell',
+      'stack-overflow': 'enemy-stack-overflow',
+      'hallucination': 'enemy-hallucination',
+      'token-overflow': 'enemy-token-overflow',
+      'context-loss': 'enemy-context-loss',
+      'prompt-injection': 'enemy-prompt-injection'
+    };
+    const textureName = textureMap[type] || type;
+
+    const enemy = this.enemies.create(x, y, textureName);
     enemy.health = Math.floor(typeData.health * healthScale);
     enemy.speed = typeData.speed;
     enemy.damage = typeData.damage;
@@ -1070,6 +1123,57 @@ export default class ArenaScene extends Phaser.Scene {
       enemy.speedVariance = typeData.speedVariance;
       enemy.nextSpeedChange = this.time.now + Phaser.Math.Between(500, 1500);
       enemy.currentSpeedMod = 1;
+    }
+
+    // NEW: Segfault death zone setup - despawns after lifespan
+    if (typeData.behavior === 'deathzone') {
+      enemy.spawnTime = this.time.now;
+      enemy.lifespan = typeData.lifespan;
+      // Pulsing effect
+      this.tweens.add({
+        targets: enemy,
+        alpha: 0.5,
+        scale: 1.2,
+        duration: 500,
+        yoyo: true,
+        repeat: -1
+      });
+    }
+
+    // NEW: Dependency Hell spawner setup
+    if (typeData.behavior === 'spawner') {
+      enemy.lastSpawn = this.time.now;
+      enemy.spawnInterval = typeData.spawnInterval;
+      enemy.maxMinions = typeData.maxMinions;
+      enemy.minionCount = 0;
+    }
+
+    // NEW: Stack Overflow grow setup
+    if (typeData.behavior === 'grow' || typeData.behavior === 'growDamage') {
+      enemy.growRate = typeData.growRate;
+      enemy.originalScale = 1;
+      enemy.currentScale = 1;
+    }
+
+    // NEW: Hallucination - make semi-transparent
+    if (typeData.behavior === 'fake') {
+      enemy.setAlpha(0.5);
+    }
+
+    // NEW: Context Loss teleport setup
+    if (typeData.behavior === 'contextLoss') {
+      enemy.lastTeleport = 0;
+      enemy.teleportCooldown = typeData.teleportCooldown;
+      enemy.wanderChance = typeData.wanderChance;
+      enemy.isWandering = false;
+      enemy.wanderAngle = 0;
+    }
+
+    // NEW: Prompt Injection hijack setup
+    if (typeData.behavior === 'hijack') {
+      enemy.lastHijack = 0;
+      enemy.hijackCooldown = typeData.hijackCooldown;
+      enemy.hijackDuration = typeData.hijackDuration;
     }
   }
 
@@ -2789,6 +2893,176 @@ export default class ArenaScene extends Phaser.Scene {
           );
           break;
 
+        // ========== NEW ENEMY BEHAVIORS ==========
+
+        case 'deathzone':
+          // SEGFAULT: Static death zone, despawns after lifespan
+          enemy.setVelocity(0, 0);
+          if (this.time.now - enemy.spawnTime > enemy.lifespan) {
+            // Despawn with fade effect
+            this.tweens.add({
+              targets: enemy,
+              alpha: 0,
+              duration: 300,
+              onComplete: () => enemy.destroy()
+            });
+          }
+          break;
+
+        case 'spawner':
+          // DEPENDENCY HELL: Spawns minion bugs periodically
+          if (this.time.now - enemy.lastSpawn > enemy.spawnInterval && enemy.minionCount < enemy.maxMinions) {
+            enemy.lastSpawn = this.time.now;
+            enemy.minionCount++;
+            // Spawn a bug minion nearby
+            const minionAngle = Math.random() * Math.PI * 2;
+            const minionX = enemy.x + Math.cos(minionAngle) * 30;
+            const minionY = enemy.y + Math.sin(minionAngle) * 30;
+            const minion = this.enemies.create(minionX, minionY, 'bug');
+            minion.health = 8;
+            minion.speed = 50;
+            minion.damage = 2;
+            minion.xpValue = 3;
+            minion.enemyType = 'bug';
+            minion.behavior = 'chase';
+            minion.setTint(0x6622aa); // Tinted to match parent
+            minion.play('bug-walk');
+            // Spawn effect
+            const spawnFlash = this.add.circle(minionX, minionY, 15, 0x6622aa, 0.6);
+            this.tweens.add({
+              targets: spawnFlash,
+              alpha: 0,
+              scale: 2,
+              duration: 300,
+              onComplete: () => spawnFlash.destroy()
+            });
+          }
+          // Slow chase
+          enemy.setVelocity(
+            Math.cos(angle) * enemy.speed,
+            Math.sin(angle) * enemy.speed
+          );
+          break;
+
+        case 'grow':
+          // STACK OVERFLOW: Grows taller over time, harder to hit
+          enemy.currentScale += enemy.growRate;
+          enemy.setScale(1, enemy.currentScale);
+          enemy.setVelocity(
+            Math.cos(angle) * enemy.speed,
+            Math.sin(angle) * enemy.speed
+          );
+          break;
+
+        case 'fake':
+          // HALLUCINATION: Looks like enemy but does 0 damage, semi-transparent
+          // Just chase, damage is 0 in type definition
+          enemy.setVelocity(
+            Math.cos(angle) * enemy.speed,
+            Math.sin(angle) * enemy.speed
+          );
+          break;
+
+        case 'growDamage':
+          // TOKEN OVERFLOW: Grows larger, damage scales with size
+          enemy.currentScale += enemy.growRate;
+          enemy.setScale(enemy.currentScale);
+          // Damage increases as it grows
+          enemy.damage = Math.floor(5 * enemy.currentScale);
+          enemy.setVelocity(
+            Math.cos(angle) * enemy.speed,
+            Math.sin(angle) * enemy.speed
+          );
+          break;
+
+        case 'contextLoss':
+          // CONTEXT LOSS: Teleports every 2.5s, 30% chance to wander aimlessly
+          if (this.time.now - enemy.lastTeleport > enemy.teleportCooldown) {
+            enemy.lastTeleport = this.time.now;
+            // Teleport to random nearby location
+            const teleportDist = Phaser.Math.Between(80, 150);
+            const randomAngle = Math.random() * Math.PI * 2;
+            enemy.x = Phaser.Math.Clamp(enemy.x + Math.cos(randomAngle) * teleportDist, 50, this.worldWidth - 50);
+            enemy.y = Phaser.Math.Clamp(enemy.y + Math.sin(randomAngle) * teleportDist, 50, this.worldHeight - 50);
+            // Teleport effect
+            const ctxFlash = this.add.circle(enemy.x, enemy.y, 25, 0xaa44aa, 0.5);
+            this.tweens.add({
+              targets: ctxFlash,
+              alpha: 0,
+              scale: 2,
+              duration: 300,
+              onComplete: () => ctxFlash.destroy()
+            });
+            // 30% chance to start wandering aimlessly
+            enemy.isWandering = Math.random() < enemy.wanderChance;
+            if (enemy.isWandering) {
+              enemy.wanderAngle = Math.random() * Math.PI * 2;
+            }
+          }
+          if (enemy.isWandering) {
+            // Wander in random direction
+            enemy.setVelocity(
+              Math.cos(enemy.wanderAngle) * enemy.speed * 0.5,
+              Math.sin(enemy.wanderAngle) * enemy.speed * 0.5
+            );
+          } else {
+            // Chase player
+            enemy.setVelocity(
+              Math.cos(angle) * enemy.speed,
+              Math.sin(angle) * enemy.speed
+            );
+          }
+          break;
+
+        case 'hijack':
+          // PROMPT INJECTION: Hijacks nearby enemies to attack each other
+          if (this.time.now - enemy.lastHijack > enemy.hijackCooldown) {
+            enemy.lastHijack = this.time.now;
+            // Find nearby enemies to hijack
+            const hijackRadius = 150;
+            let hijackedCount = 0;
+            this.enemies.children.each((otherEnemy) => {
+              if (!otherEnemy.active || otherEnemy === enemy || hijackedCount >= 3) return;
+              const hijackDist = Phaser.Math.Distance.Between(enemy.x, enemy.y, otherEnemy.x, otherEnemy.y);
+              if (hijackDist < hijackRadius && !otherEnemy.isHijacked) {
+                hijackedCount++;
+                otherEnemy.isHijacked = true;
+                otherEnemy.hijackEndTime = this.time.now + enemy.hijackDuration;
+                otherEnemy.setTint(0xff00ff); // Purple tint to show hijacked
+                // Hijack visual
+                const hijackLine = this.add.line(0, 0, enemy.x, enemy.y, otherEnemy.x, otherEnemy.y, 0xff00ff, 0.6);
+                this.tweens.add({
+                  targets: hijackLine,
+                  alpha: 0,
+                  duration: 500,
+                  onComplete: () => hijackLine.destroy()
+                });
+              }
+            });
+            if (hijackedCount > 0) {
+              // Hijack announcement
+              const hijackText = this.add.text(enemy.x, enemy.y - 30, 'HIJACKED!', {
+                fontFamily: 'monospace',
+                fontSize: '12px',
+                color: '#ff00ff',
+                fontStyle: 'bold'
+              }).setOrigin(0.5);
+              this.tweens.add({
+                targets: hijackText,
+                y: hijackText.y - 20,
+                alpha: 0,
+                duration: 1000,
+                onComplete: () => hijackText.destroy()
+              });
+            }
+          }
+          // Chase player
+          enemy.setVelocity(
+            Math.cos(angle) * enemy.speed,
+            Math.sin(angle) * enemy.speed
+          );
+          break;
+
         case 'chase':
         default:
           // Standard chase behavior
@@ -2797,6 +3071,43 @@ export default class ArenaScene extends Phaser.Scene {
             Math.sin(angle) * enemy.speed
           );
           break;
+      }
+
+      // Handle hijacked enemies (from Prompt Injection)
+      if (enemy.isHijacked) {
+        // Check if hijack has expired
+        if (this.time.now > enemy.hijackEndTime) {
+          enemy.isHijacked = false;
+          enemy.clearTint();
+        } else {
+          // Find nearest other enemy to attack
+          let nearestEnemy = null;
+          let nearestDist = Infinity;
+          this.enemies.children.each((otherEnemy) => {
+            if (!otherEnemy.active || otherEnemy === enemy || otherEnemy.isHijacked) return;
+            const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, otherEnemy.x, otherEnemy.y);
+            if (dist < nearestDist) {
+              nearestDist = dist;
+              nearestEnemy = otherEnemy;
+            }
+          });
+
+          if (nearestEnemy) {
+            // Move toward and attack other enemy
+            const attackAngle = Phaser.Math.Angle.Between(enemy.x, enemy.y, nearestEnemy.x, nearestEnemy.y);
+            enemy.setVelocity(
+              Math.cos(attackAngle) * enemy.speed * 1.2,
+              Math.sin(attackAngle) * enemy.speed * 1.2
+            );
+            // Damage other enemy if close enough
+            if (nearestDist < 30) {
+              nearestEnemy.health -= enemy.damage * 0.5;
+              if (nearestEnemy.health <= 0) {
+                nearestEnemy.destroy();
+              }
+            }
+          }
+        }
       }
     });
 

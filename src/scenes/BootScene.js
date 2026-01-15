@@ -55,6 +55,15 @@ export default class BootScene extends Phaser.Scene {
     this.generateInfiniteLoopSpriteSheet();
     this.generateRaceConditionSpriteSheet();
 
+    // NEW coding + AI themed enemies
+    this.generateSegfaultTexture();
+    this.generateDependencyHellTexture();
+    this.generateStackOverflowTexture();
+    this.generateHallucinationTexture();
+    this.generateTokenOverflowTexture();
+    this.generateContextLossTexture();
+    this.generatePromptInjectionTexture();
+
     // Mini-boss texture
     this.generateMiniBossTexture();
 
@@ -1762,6 +1771,200 @@ export default class BootScene extends Phaser.Scene {
     g.fillCircle(size/2, size/2 + 4, 3);
 
     g.generateTexture('legendary-celestialBlade', size, size);
+    g.destroy();
+  }
+
+  // ========== NEW ENEMY TEXTURES ==========
+
+  generateSegfaultTexture() {
+    // Death zone - skull with red warning
+    const size = 32;
+    const g = this.add.graphics();
+
+    // Red pulsing circle background
+    g.fillStyle(0xff0000, 0.3);
+    g.fillCircle(size/2, size/2, size/2 - 2);
+
+    // Skull shape
+    g.fillStyle(0xff3333, 1);
+    g.fillCircle(size/2, size/2 - 2, 10); // Head
+    g.fillRect(size/2 - 6, size/2 + 6, 12, 6); // Jaw
+
+    // Eye sockets
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(size/2 - 4, size/2 - 3, 3);
+    g.fillCircle(size/2 + 4, size/2 - 3, 3);
+
+    // Nose hole
+    g.fillTriangle(size/2, size/2 + 2, size/2 - 2, size/2 + 5, size/2 + 2, size/2 + 5);
+
+    g.generateTexture('enemy-segfault', size, size);
+    g.destroy();
+  }
+
+  generateDependencyHellTexture() {
+    // Mother spider-like bug with web
+    const size = 40;
+    const g = this.add.graphics();
+
+    // Web pattern
+    g.lineStyle(1, 0x666666, 0.5);
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      g.lineBetween(size/2, size/2, size/2 + Math.cos(angle) * 18, size/2 + Math.sin(angle) * 18);
+    }
+
+    // Body (dark purple)
+    g.fillStyle(0x6622aa, 1);
+    g.fillCircle(size/2, size/2, 12);
+
+    // Legs (8 spider legs)
+    g.lineStyle(2, 0x4411aa, 1);
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      g.lineBetween(size/2, size/2, size/2 + Math.cos(angle) * 16, size/2 + Math.sin(angle) * 16);
+    }
+
+    // Eyes (multiple like a spider)
+    g.fillStyle(0xff0000, 1);
+    g.fillCircle(size/2 - 4, size/2 - 3, 2);
+    g.fillCircle(size/2 + 4, size/2 - 3, 2);
+    g.fillCircle(size/2 - 2, size/2 - 6, 1.5);
+    g.fillCircle(size/2 + 2, size/2 - 6, 1.5);
+
+    g.generateTexture('enemy-dependency-hell', size, size);
+    g.destroy();
+  }
+
+  generateStackOverflowTexture() {
+    // Stacking blocks that grow taller
+    const size = 32;
+    const g = this.add.graphics();
+
+    // Stack of orange blocks
+    const colors = [0xff6600, 0xff8800, 0xffaa00, 0xffcc00];
+    for (let i = 0; i < 4; i++) {
+      g.fillStyle(colors[i], 1);
+      g.fillRect(size/2 - 8, size - 8 - (i * 6), 16, 5);
+      g.lineStyle(1, 0x000000, 0.5);
+      g.strokeRect(size/2 - 8, size - 8 - (i * 6), 16, 5);
+    }
+
+    // Arrow pointing up
+    g.fillStyle(0xffffff, 0.8);
+    g.fillTriangle(size/2, 2, size/2 - 4, 8, size/2 + 4, 8);
+
+    g.generateTexture('enemy-stack-overflow', size, size);
+    g.destroy();
+  }
+
+  generateHallucinationTexture() {
+    // Ghost-like semi-transparent enemy
+    const size = 28;
+    const g = this.add.graphics();
+
+    // Ghostly body (semi-transparent)
+    g.fillStyle(0x88aaff, 0.4);
+    g.fillCircle(size/2, size/2 - 3, 10);
+    g.fillRect(size/2 - 8, size/2, 16, 10);
+
+    // Wavy bottom
+    g.fillCircle(size/2 - 5, size/2 + 8, 4);
+    g.fillCircle(size/2, size/2 + 10, 4);
+    g.fillCircle(size/2 + 5, size/2 + 8, 4);
+
+    // Hollow eyes
+    g.fillStyle(0xffffff, 0.6);
+    g.fillCircle(size/2 - 4, size/2 - 4, 3);
+    g.fillCircle(size/2 + 4, size/2 - 4, 3);
+
+    g.generateTexture('enemy-hallucination', size, size);
+    g.destroy();
+  }
+
+  generateTokenOverflowTexture() {
+    // Growing blob of text tokens
+    const size = 32;
+    const g = this.add.graphics();
+
+    // Blob body (blue-ish)
+    g.fillStyle(0x0088ff, 0.8);
+    g.fillCircle(size/2, size/2, 12);
+
+    // Token symbols inside
+    g.fillStyle(0xffffff, 0.6);
+    g.fillRect(size/2 - 6, size/2 - 4, 3, 8);
+    g.fillRect(size/2 - 1, size/2 - 6, 3, 12);
+    g.fillRect(size/2 + 4, size/2 - 3, 3, 6);
+
+    // Overflow effect (dripping)
+    g.fillStyle(0x0066cc, 0.6);
+    g.fillCircle(size/2 - 4, size/2 + 12, 3);
+    g.fillCircle(size/2 + 4, size/2 + 10, 2);
+
+    g.generateTexture('enemy-token-overflow', size, size);
+    g.destroy();
+  }
+
+  generateContextLossTexture() {
+    // Confused entity with ??? symbols
+    const size = 32;
+    const g = this.add.graphics();
+
+    // Body (purple/pink confused)
+    g.fillStyle(0xaa44aa, 1);
+    g.fillCircle(size/2, size/2, 11);
+
+    // Spiral confusion
+    g.lineStyle(2, 0xff88ff, 0.8);
+    g.strokeCircle(size/2, size/2 - 8, 4);
+    g.lineBetween(size/2 + 3, size/2 - 6, size/2 + 5, size/2 - 4);
+
+    // Question marks
+    g.fillStyle(0xffffff, 0.8);
+    g.fillCircle(size/2 - 6, size/2 - 3, 2);
+    g.fillCircle(size/2 + 6, size/2 - 3, 2);
+
+    // Dizzy eyes
+    g.lineStyle(1, 0xffffff, 0.8);
+    g.strokeCircle(size/2 - 4, size/2 + 2, 3);
+    g.strokeCircle(size/2 + 4, size/2 + 2, 3);
+
+    g.generateTexture('enemy-context-loss', size, size);
+    g.destroy();
+  }
+
+  generatePromptInjectionTexture() {
+    // Manipulator with control symbols
+    const size = 36;
+    const g = this.add.graphics();
+
+    // Body (dark red/maroon - sinister)
+    g.fillStyle(0x881144, 1);
+    g.fillCircle(size/2, size/2, 13);
+
+    // Control strings/tendrils
+    g.lineStyle(2, 0xff4488, 0.8);
+    g.lineBetween(size/2, size/2, size/2 - 14, size/2 - 10);
+    g.lineBetween(size/2, size/2, size/2 + 14, size/2 - 10);
+    g.lineBetween(size/2, size/2, size/2 - 12, size/2 + 12);
+    g.lineBetween(size/2, size/2, size/2 + 12, size/2 + 12);
+
+    // Hypnotic eyes
+    g.fillStyle(0xff00ff, 1);
+    g.fillCircle(size/2 - 4, size/2 - 2, 4);
+    g.fillCircle(size/2 + 4, size/2 - 2, 4);
+
+    // Inner eyes (spiral)
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(size/2 - 4, size/2 - 2, 2);
+    g.fillCircle(size/2 + 4, size/2 - 2, 2);
+
+    // Injection symbol (syringe icon simplified)
+    g.fillStyle(0xffff00, 0.8);
+    g.fillRect(size/2 - 1, size/2 + 4, 2, 6);
+
+    g.generateTexture('enemy-prompt-injection', size, size);
     g.destroy();
   }
 }
