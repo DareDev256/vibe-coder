@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import * as Audio from '../utils/audio.js';
+import { isConnected } from '../utils/socket.js';
 
 export default class ArenaScene extends Phaser.Scene {
   constructor() {
@@ -535,6 +536,97 @@ export default class ArenaScene extends Phaser.Scene {
     // Player health
     this.player.health = this.getStats().maxHealth;
     this.player.maxHealth = this.getStats().maxHealth;
+
+    // Speech bubble for in-game quotes
+    this.speechBubble = this.add.graphics();
+    this.speechText = this.add.text(0, 0, '', {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#000000',
+      align: 'center',
+      wordWrap: { width: 120 }
+    }).setOrigin(0.5).setDepth(1000);
+    this.speechBubble.setDepth(999);
+    this.speechBubble.setVisible(false);
+    this.speechText.setVisible(false);
+    this.speechTimer = null;
+    this.lastQuoteTime = 0;
+    this.quoteCooldown = 4000;
+
+    // Auto-move indicator (shows current mode)
+    this.autoMoveIndicator = this.add.text(0, 0, '⚔️', {
+      fontSize: '14px'
+    }).setOrigin(0.5).setDepth(1001).setVisible(false);
+    this.autoPlayMode = 'hunt';
+
+    // Mode-specific quotes
+    this.huntQuotes = [
+      "Target acquired!",
+      "Here I come!",
+      "Easy XP",
+      "Got you!",
+      "Hunting mode",
+      "Going in!",
+      "Lock on!",
+      "Free kills"
+    ];
+    this.evadeQuotes = [
+      "Too hot!",
+      "Backing up!",
+      "*kiting*",
+      "Need space!",
+      "Whoa whoa",
+      "Tactical retreat",
+      "Low HP!"
+    ];
+    this.idleQuotes = [
+      "All clear!",
+      "Wave done?",
+      "Waiting...",
+      "Easy wave",
+      "*stretches*"
+    ];
+
+    // Combined quotes for random selection based on mode
+    this.inGameQuotes = this.huntQuotes;
+
+    // Listen for XP events - use mode-specific quotes
+    this.xpHandler = (event) => {
+      const now = Date.now();
+      if (event.detail?.source && now - this.lastQuoteTime > this.quoteCooldown) {
+        this.lastQuoteTime = now;
+        // Pick quote based on current auto-play mode
+        let quotePool = this.huntQuotes;
+        if (this.autoPlayMode === 'evade') quotePool = this.evadeQuotes;
+        else if (this.autoPlayMode === 'idle') quotePool = this.idleQuotes;
+        this.showPlayerQuote(Phaser.Utils.Array.GetRandom(quotePool));
+      }
+    };
+    window.addEventListener('xpgained', this.xpHandler);
+  }
+
+  showPlayerQuote(text) {
+    if (this.speechTimer) this.speechTimer.remove();
+
+    const bubbleX = this.player.x;
+    const bubbleY = this.player.y - 40;
+
+    this.speechBubble.clear();
+    this.speechBubble.fillStyle(0xffffff, 0.9);
+    this.speechBubble.lineStyle(2, 0x00ffff, 1);
+    this.speechBubble.fillRoundedRect(bubbleX - 65, bubbleY - 18, 130, 36, 6);
+    this.speechBubble.strokeRoundedRect(bubbleX - 65, bubbleY - 18, 130, 36, 6);
+
+    this.speechText.setPosition(bubbleX, bubbleY);
+    this.speechText.setText(text);
+
+    this.speechBubble.setVisible(true);
+    this.speechText.setVisible(true);
+
+    this.speechTimer = this.time.delayedCall(2000, () => {
+      this.speechBubble.setVisible(false);
+      this.speechText.setVisible(false);
+    });
   }
 
   getStats() {
@@ -572,47 +664,119 @@ export default class ArenaScene extends Phaser.Scene {
     return upgrades.getBonus('weaponDuration');
   }
 
+  // Smart Auto-Play: Hunt enemies, evade when threatened
   calculateAutoMove() {
-    // Auto-move AI: move away from enemies while staying in bounds
     const px = this.player.x;
     const py = this.player.y;
-    const detectionRadius = 200;
+    const healthPercent = this.player.health / this.player.maxHealth;
+    const nearbyCount = this.countNearbyEnemies(120);
+
+    // Track current auto-play mode for UI
+    let mode = 'hunt';
+
+    // EVADE MODE: Low health or too many enemies nearby
+    if (healthPercent < 0.3 || nearbyCount >= 4) {
+      mode = 'evade';
+      this.autoPlayMode = 'evade';
+      return this.calculateEvadeMove(px, py);
+    }
+
+    // HUNT MODE: Find and approach nearest enemy
+    const target = this.findNearestEnemy(px, py);
+    if (target) {
+      this.autoPlayMode = 'hunt';
+      return this.calculateHuntMove(px, py, target);
+    }
+
+    // IDLE MODE: No enemies, gentle wander
+    this.autoPlayMode = 'idle';
+    return this.calculateWanderMove(px, py);
+  }
+
+  // Count enemies within radius
+  countNearbyEnemies(radius) {
+    let count = 0;
+    const px = this.player.x;
+    const py = this.player.y;
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active) return;
+      const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
+      if (dist < radius) count++;
+    });
+    return count;
+  }
+
+  // Find nearest non-deadly enemy
+  findNearestEnemy(px, py) {
+    let nearest = null;
+    let nearestDist = Infinity;
+    const deadlyTypes = ['segfault']; // Avoid these completely
+
+    this.enemies.children.each((enemy) => {
+      if (!enemy.active) return;
+      if (deadlyTypes.includes(enemy.enemyType)) return; // Skip deadly
+
+      const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = enemy;
+      }
+    });
+    return nearest;
+  }
+
+  // HUNT: Move toward target enemy
+  calculateHuntMove(px, py, target) {
+    const dist = Phaser.Math.Distance.Between(px, py, target.x, target.y);
+    const optimalRange = 120; // Stay at weapon range
+
+    // Already in range, hold position with slight adjustment
+    if (dist < optimalRange) {
+      return { x: 0, y: 0 };
+    }
+
+    // Move toward target
+    const angle = Phaser.Math.Angle.Between(px, py, target.x, target.y);
+    let moveX = Math.cos(angle);
+    let moveY = Math.sin(angle);
+
+    // Apply bounds checking
+    return this.applyBoundsCheck(px, py, moveX, moveY);
+  }
+
+  // EVADE: Circle-strafe away from threats
+  calculateEvadeMove(px, py) {
     let threatX = 0;
     let threatY = 0;
     let threatCount = 0;
+    const detectionRadius = 200;
 
-    // Find average threat direction from nearby enemies
     this.enemies.children.each((enemy) => {
       if (!enemy.active) return;
       const dist = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
       if (dist < detectionRadius && dist > 0) {
-        // Weight by proximity (closer = bigger threat)
         const weight = 1 - (dist / detectionRadius);
-        threatX += (enemy.x - px) * weight;
-        threatY += (enemy.y - py) * weight;
+        // Extra weight for deadly enemies
+        const dangerMult = enemy.enemyType === 'segfault' ? 3 : 1;
+        threatX += (enemy.x - px) * weight * dangerMult;
+        threatY += (enemy.y - py) * weight * dangerMult;
         threatCount++;
       }
     });
 
-    // If no nearby threats, wander toward center or stay put
     if (threatCount === 0) {
-      // Gentle drift toward map center to avoid getting stuck at edges
-      const centerX = this.worldWidth / 2;
-      const centerY = this.worldHeight / 2;
-      const distToCenter = Phaser.Math.Distance.Between(px, py, centerX, centerY);
-      if (distToCenter > 500) {
-        const angle = Phaser.Math.Angle.Between(px, py, centerX, centerY);
-        return {
-          x: Math.cos(angle) * 0.3,
-          y: Math.sin(angle) * 0.3
-        };
-      }
-      return { x: 0, y: 0 }; // Stay put if centered and safe
+      return { x: 0, y: 0 };
     }
 
-    // Move away from threats
+    // Move away from threats with slight perpendicular (circle-strafe)
     let moveX = -threatX;
     let moveY = -threatY;
+
+    // Add perpendicular component for circle-strafing
+    const perpX = -moveY * 0.3;
+    const perpY = moveX * 0.3;
+    moveX += perpX;
+    moveY += perpY;
 
     // Normalize
     const magnitude = Math.sqrt(moveX * moveX + moveY * moveY);
@@ -621,13 +785,39 @@ export default class ArenaScene extends Phaser.Scene {
       moveY /= magnitude;
     }
 
-    // Check world bounds and adjust if needed
+    return this.applyBoundsCheck(px, py, moveX, moveY);
+  }
+
+  // WANDER: Gentle random movement when idle
+  calculateWanderMove(px, py) {
+    const centerX = this.worldWidth / 2;
+    const centerY = this.worldHeight / 2;
+    const distToCenter = Phaser.Math.Distance.Between(px, py, centerX, centerY);
+
+    // Drift toward center if too far out
+    if (distToCenter > 500) {
+      const angle = Phaser.Math.Angle.Between(px, py, centerX, centerY);
+      return {
+        x: Math.cos(angle) * 0.4,
+        y: Math.sin(angle) * 0.4
+      };
+    }
+
+    // Random gentle movement
+    const time = Date.now() / 1000;
+    return {
+      x: Math.sin(time * 0.5) * 0.3,
+      y: Math.cos(time * 0.7) * 0.3
+    };
+  }
+
+  // Apply world bounds checking
+  applyBoundsCheck(px, py, moveX, moveY) {
     const margin = 100;
     if (px < margin) moveX = Math.max(moveX, 0.5);
     if (px > this.worldWidth - margin) moveX = Math.min(moveX, -0.5);
     if (py < margin) moveY = Math.max(moveY, 0.5);
     if (py > this.worldHeight - margin) moveY = Math.min(moveY, -0.5);
-
     return { x: moveX, y: moveY };
   }
 
@@ -719,6 +909,12 @@ export default class ArenaScene extends Phaser.Scene {
       this.connectionText.setText('🔴 OFFLINE - SPACE FOR XP | M = MUSIC');
       this.connectionText.setColor('#ff6666');
     });
+
+    // Check if already connected (connection may have happened before scene started)
+    if (isConnected()) {
+      this.connectionText.setText('🟢 LIVE - XP FROM CODING | M = MUSIC');
+      this.connectionText.setColor('#00ff00');
+    }
 
     // Stage text
     this.stageText = this.add.text(700, 50, 'STAGE: DEBUG ZONE', {
@@ -3092,6 +3288,31 @@ export default class ArenaScene extends Phaser.Scene {
     }
 
     this.player.setVelocity(vx * stats.speed, vy * stats.speed);
+
+    // Update speech bubble position to follow player
+    if (this.speechBubble && this.speechBubble.visible) {
+      const bubbleX = this.player.x;
+      const bubbleY = this.player.y - 40;
+      this.speechBubble.clear();
+      this.speechBubble.fillStyle(0xffffff, 0.9);
+      this.speechBubble.lineStyle(2, 0x00ffff, 1);
+      this.speechBubble.fillRoundedRect(bubbleX - 65, bubbleY - 18, 130, 36, 6);
+      this.speechBubble.strokeRoundedRect(bubbleX - 65, bubbleY - 18, 130, 36, 6);
+      this.speechText.setPosition(bubbleX, bubbleY);
+    }
+
+    // Update auto-move indicator position and mode emoji
+    if (this.autoMoveIndicator) {
+      this.autoMoveIndicator.setPosition(this.player.x + 20, this.player.y - 30);
+      const isAutoMoving = !hasManualInput && window.VIBE_SETTINGS?.autoMove && window.VIBE_CODER?.isCodingActive();
+      this.autoMoveIndicator.setVisible(isAutoMoving);
+      // Update emoji based on mode
+      if (isAutoMoving) {
+        if (this.autoPlayMode === 'hunt') this.autoMoveIndicator.setText('⚔️');
+        else if (this.autoPlayMode === 'evade') this.autoMoveIndicator.setText('🛡️');
+        else this.autoMoveIndicator.setText('😴');
+      }
+    }
 
     // Play appropriate animation based on movement
     const isMoving = vx !== 0 || vy !== 0;

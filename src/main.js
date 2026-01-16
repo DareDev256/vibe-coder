@@ -304,9 +304,9 @@ window.VIBE_CODER = {
 
   // Add XP and handle level ups
   addXP: function(amount, source = null) {
-    // Track coding activity time
-    this.lastCodingTime = Date.now();
+    // Only track coding activity time when XP comes from actual coding (has source)
     if (source) {
+      this.lastCodingTime = Date.now();
       this.lastXPSource = source;
     }
 

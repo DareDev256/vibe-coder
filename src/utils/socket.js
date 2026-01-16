@@ -38,12 +38,12 @@ export function connectToXPServer() {
 
         // Add XP through the game state
         if (window.VIBE_CODER) {
-          // Store source info for popup display
-          window.VIBE_CODER.lastXPSource = {
+          // Pass source to addXP so isCodingActive() works for auto-move
+          const source = {
             name: data.sourceName || 'CODE',
             color: data.sourceColor || '#ffffff'
           };
-          window.VIBE_CODER.addXP(data.amount);
+          window.VIBE_CODER.addXP(data.amount, source);
         }
       } catch (e) {
         console.error('Failed to parse XP event:', e);

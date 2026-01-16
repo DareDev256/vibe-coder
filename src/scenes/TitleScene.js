@@ -41,6 +41,11 @@ export default class TitleScene extends Phaser.Scene {
 
     // Idle character on title screen
     this.createIdleCharacter();
+
+    // Check if we need to ask for name on first launch
+    if (!window.VIBE_SETTINGS.playerName) {
+      this.time.delayedCall(500, () => this.showNameInput(true));
+    }
   }
 
   createBackground() {
@@ -301,6 +306,19 @@ export default class TitleScene extends Phaser.Scene {
     this.speechBubble.setVisible(false);
     this.speechText.setVisible(false);
 
+    // Thinking bubble (shows coding activity)
+    this.thinkingBubble = this.add.graphics();
+    this.thinkingDots = this.add.text(0, 0, '...', {
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      color: '#00ffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    this.thinkingBubble.setVisible(false);
+    this.thinkingDots.setVisible(false);
+    this.thinkingTimer = null;
+    this.dotAnimationTimer = null;
+
     // Character state
     this.charState = 'idle';
     this.charTarget = null;
@@ -359,7 +377,18 @@ export default class TitleScene extends Phaser.Scene {
       "Ship it ship it!",
       "Clean code detected",
       "*watching intensely*",
-      "10x developer mode"
+      "10x developer mode",
+      "Long prompt huh?",
+      "What you guys\nup to?",
+      "Working on\nmy task!",
+      "Hooks are LIVE",
+      "I see that\ntool call!",
+      "Keep coding\nI got this",
+      "CLI activity\ndetected!",
+      "Ayy more XP!",
+      "*types furiously*",
+      "We cooking rn",
+      "Context window\ngetting thicc"
     ];
 
     this.xpConnectedQuotes = [
@@ -449,6 +478,11 @@ export default class TitleScene extends Phaser.Scene {
   setupCodingListeners() {
     // XP gained from coding
     this.xpGainedHandler = (event) => {
+      // Only show thinking bubble for coding/prompting activity (has source)
+      if (event.detail?.source) {
+        this.showThinkingBubble();
+      }
+
       const now = Date.now();
       if (now - this.lastXPReaction > this.xpReactionCooldown) {
         this.lastXPReaction = now;
@@ -672,6 +706,63 @@ export default class TitleScene extends Phaser.Scene {
     this.speechTimer = this.time.delayedCall(3000, () => {
       this.speechBubble.setVisible(false);
       this.speechText.setVisible(false);
+    });
+  }
+
+  showThinkingBubble() {
+    // Clear existing timer
+    if (this.thinkingTimer) {
+      this.thinkingTimer.remove();
+    }
+    if (this.dotAnimationTimer) {
+      this.dotAnimationTimer.remove();
+    }
+
+    // Position thinking bubble above and to the right of speech bubble area
+    const bubbleX = this.idlePlayer.x + 45;
+    const bubbleY = this.idlePlayer.y - 75;
+
+    // Draw thought bubble (small circles leading to main bubble)
+    this.thinkingBubble.clear();
+    this.thinkingBubble.fillStyle(0x1a1a2e, 0.9);
+    this.thinkingBubble.lineStyle(2, 0x00ffff, 1);
+
+    // Main bubble
+    this.thinkingBubble.fillCircle(bubbleX, bubbleY, 18);
+    this.thinkingBubble.strokeCircle(bubbleX, bubbleY, 18);
+
+    // Small thought circles leading down
+    this.thinkingBubble.fillCircle(bubbleX - 15, bubbleY + 22, 6);
+    this.thinkingBubble.strokeCircle(bubbleX - 15, bubbleY + 22, 6);
+    this.thinkingBubble.fillCircle(bubbleX - 22, bubbleY + 32, 4);
+    this.thinkingBubble.strokeCircle(bubbleX - 22, bubbleY + 32, 4);
+
+    // Position dots
+    this.thinkingDots.setPosition(bubbleX, bubbleY);
+
+    // Show
+    this.thinkingBubble.setVisible(true);
+    this.thinkingDots.setVisible(true);
+
+    // Animate dots
+    let dotState = 0;
+    const dotPatterns = ['.', '..', '...', '..'];
+    this.dotAnimationTimer = this.time.addEvent({
+      delay: 200,
+      callback: () => {
+        dotState = (dotState + 1) % dotPatterns.length;
+        this.thinkingDots.setText(dotPatterns[dotState]);
+      },
+      loop: true
+    });
+
+    // Hide after delay
+    this.thinkingTimer = this.time.delayedCall(1500, () => {
+      this.thinkingBubble.setVisible(false);
+      this.thinkingDots.setVisible(false);
+      if (this.dotAnimationTimer) {
+        this.dotAnimationTimer.remove();
+      }
     });
   }
 
@@ -1190,12 +1281,11 @@ export default class TitleScene extends Phaser.Scene {
         updateVisuals();
         Audio.playHit();
       } else if (item.type === 'input') {
-        // Prompt for name input using browser prompt
-        const newName = prompt('Enter your name (max 20 characters):', item.getValue() === '[NOT SET]' ? '' : item.getValue());
-        if (newName !== null) {
-          item.setValue(newName);
-          updateVisuals();
-        }
+        // Use in-game name input
+        close();
+        this.showNameInput(false, () => {
+          // Settings will be saved by showNameInput
+        });
       }
     };
 
@@ -1232,6 +1322,145 @@ export default class TitleScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-ENTER', select);
     this.input.keyboard.on('keydown-SPACE', select);
     this.input.keyboard.on('keydown-ESC', close);
+  }
+
+  showNameInput(isFirstTime = false, callback = null) {
+    this.nameInputOpen = true;
+    let currentName = '';
+    const maxLength = 20;
+
+    // Create overlay
+    const overlay = this.add.rectangle(400, 300, 500, 280, 0x000000, 0.95);
+    overlay.setStrokeStyle(2, 0x00ffff);
+
+    // Title
+    const title = this.add.text(400, 190, isFirstTime ? 'ENTER YOUR NAME' : 'CHANGE NAME', {
+      fontFamily: 'monospace',
+      fontSize: '24px',
+      color: '#00ffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // Subtitle for first time
+    const subtitle = isFirstTime ? this.add.text(400, 225, 'Welcome, coder!', {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#888888'
+    }).setOrigin(0.5) : null;
+
+    // Input display box
+    const inputBox = this.add.rectangle(400, 290, 400, 50, 0x111122, 1);
+    inputBox.setStrokeStyle(2, 0x00ffff);
+
+    // Name text
+    const nameText = this.add.text(400, 290, '_', {
+      fontFamily: 'monospace',
+      fontSize: '28px',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+
+    // Cursor blink
+    let cursorVisible = true;
+    const cursorBlink = this.time.addEvent({
+      delay: 500,
+      callback: () => {
+        cursorVisible = !cursorVisible;
+        updateNameDisplay();
+      },
+      loop: true
+    });
+
+    // Character counter
+    const counterText = this.add.text(580, 330, `0/${maxLength}`, {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#666666'
+    }).setOrigin(1, 0);
+
+    // Help text
+    const helpText = this.add.text(400, 380, 'TYPE YOUR NAME | BACKSPACE TO DELETE | ENTER TO CONFIRM', {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#666666'
+    }).setOrigin(0.5);
+
+    const skipText = !isFirstTime ? this.add.text(400, 410, '[ ESC TO CANCEL ]', {
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      color: '#888888'
+    }).setOrigin(0.5) : null;
+
+    const updateNameDisplay = () => {
+      const cursor = cursorVisible ? '_' : ' ';
+      nameText.setText(currentName + cursor);
+      counterText.setText(`${currentName.length}/${maxLength}`);
+      counterText.setColor(currentName.length >= maxLength ? '#ff6666' : '#666666');
+    };
+
+    // Keyboard input handler
+    const keyHandler = (event) => {
+      const key = event.key;
+
+      // Handle backspace
+      if (key === 'Backspace') {
+        currentName = currentName.slice(0, -1);
+        updateNameDisplay();
+        return;
+      }
+
+      // Handle enter - confirm
+      if (key === 'Enter') {
+        if (currentName.trim().length > 0) {
+          confirmName();
+        }
+        return;
+      }
+
+      // Handle escape - cancel (only if not first time)
+      if (key === 'Escape' && !isFirstTime) {
+        closeInput();
+        return;
+      }
+
+      // Add character if valid and under limit
+      if (key.length === 1 && currentName.length < maxLength) {
+        // Allow alphanumeric, spaces, and some special chars
+        if (/^[a-zA-Z0-9 _\-.]$/.test(key)) {
+          currentName += key;
+          updateNameDisplay();
+        }
+      }
+    };
+
+    const confirmName = () => {
+      window.VIBE_SETTINGS.setPlayerName(currentName.trim());
+      closeInput();
+      if (callback) callback(currentName.trim());
+
+      // Show welcome message
+      if (isFirstTime && this.idlePlayer) {
+        this.sayQuote(`Welcome,\n${currentName.trim()}!`);
+      }
+    };
+
+    const closeInput = () => {
+      window.removeEventListener('keydown', keyHandler);
+      cursorBlink.destroy();
+      overlay.destroy();
+      title.destroy();
+      if (subtitle) subtitle.destroy();
+      inputBox.destroy();
+      nameText.destroy();
+      counterText.destroy();
+      helpText.destroy();
+      if (skipText) skipText.destroy();
+      this.nameInputOpen = false;
+    };
+
+    // Add keyboard listener
+    window.addEventListener('keydown', keyHandler);
+
+    updateNameDisplay();
   }
 
   showUpgrades() {
