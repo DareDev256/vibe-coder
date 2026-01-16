@@ -16,8 +16,8 @@ export default class BootScene extends Phaser.Scene {
       color: '#00ffff'
     }).setOrigin(0.5);
 
-    // Load the actual Hunter's Warglaive image
-    this.load.image('legendary-huntersWarglaive', '/assets/hunters-warglaive.png');
+    // Load the actual Hunter's Warglaive image (relative path for GitHub Pages)
+    this.load.image('legendary-huntersWarglaive', './assets/hunters-warglaive.png');
 
     // We'll generate textures in create() instead of loading sprite sheets
     this.time.delayedCall(500, () => {
