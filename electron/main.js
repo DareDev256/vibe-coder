@@ -1,7 +1,7 @@
 import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import { createTray, updateTrayMenu } from './tray.js';
+import { createTray, updateTrayMenu, updateGameState } from './tray.js';
 import { createSettingsStore } from './settings.js';
 import { applyWindowMode, cycleWindowMode, getWindowModeConfig } from './windows.js';
 import { startServer, stopServer, getServerState, setXPEventCallback } from './server.js';
@@ -194,6 +194,12 @@ function setupIPC() {
   // Server IPC
   ipcMain.handle('server:getState', () => getServerState());
   ipcMain.on('server:toggle', () => toggleServerMode());
+
+  // Game state IPC - update tray menu with game stats
+  ipcMain.on('game:state', (_, state) => {
+    updateGameState(state);
+    updateTrayMenu(tray, mainWindow, settings, quitApp);
+  });
 }
 
 app.whenReady().then(() => {

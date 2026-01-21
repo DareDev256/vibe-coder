@@ -1,6 +1,6 @@
 {
   "name": "vibe-coder",
-  "version": "0.1.0",
+  "version": "0.6.0",
   "description": "Vampire Survivors-style idle game powered by your Claude Code activity",
   "type": "module",
   "main": "electron/main.js",
@@ -60,11 +60,15 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["universal"]
+          "arch": [
+            "universal"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["universal"]
+          "arch": [
+            "universal"
+          ]
         }
       ],
       "darkModeSupport": true,
@@ -93,7 +97,10 @@
     },
     "win": {
       "icon": "build/icon.png",
-      "target": ["nsis", "portable"]
+      "target": [
+        "nsis",
+        "portable"
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -104,7 +111,10 @@
     "linux": {
       "icon": "build/icon.png",
       "category": "Game",
-      "target": ["AppImage", "deb"]
+      "target": [
+        "AppImage",
+        "deb"
+      ]
     }
   }
 }

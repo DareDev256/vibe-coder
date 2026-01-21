@@ -1178,6 +1178,18 @@ export default class ArenaScene extends Phaser.Scene {
       this.bossHealthBar.setVisible(false);
       this.bossNameText.setVisible(false);
     }
+
+    // Sync game state to Electron tray (if running in desktop app)
+    if (window.electronAPI?.updateGameState) {
+      window.electronAPI.updateGameState({
+        level: state.level,
+        xp: state.xp,
+        xpToNext: xpNeeded,
+        weapon: weaponLabel,
+        wave: this.waveNumber,
+        isPlaying: true
+      });
+    }
   }
 
   showXPPopup(amount) {
