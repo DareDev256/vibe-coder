@@ -1,6 +1,13 @@
 import Phaser from 'phaser';
 import * as Audio from '../utils/audio.js';
 import { isConnected } from '../utils/socket.js';
+import SpatialHash from '../utils/SpatialHash.js';
+import SaveManager from '../systems/SaveManager.js';
+import RebirthManager from '../systems/RebirthManager.js';
+import MapManager from '../systems/MapManager.js';
+import RunModifiers from '../systems/RunModifiers.js';
+import EventManager from '../systems/EventManager.js';
+import ShrineManager from '../systems/ShrineManager.js';
 
 export default class ArenaScene extends Phaser.Scene {
   constructor() {
@@ -130,6 +137,20 @@ export default class ArenaScene extends Phaser.Scene {
     this.bossHealthBar = null;
     this.bossNameText = null;
 
+    // === RunModifiers state ===
+    this.activeModifiers = [];
+    this.modifierEffects = null; // Combined effects from all active modifiers
+
+    // === EventManager state ===
+    this.eventManager = null;
+    this.xpEventMultiplier = 1;
+    this.eventEnemySpeedMod = 1;
+    this.forceRareDrops = false;
+
+    // === ShrineManager state ===
+    this.shrineManager = null;
+    this.shrineDamageBuff = 1;
+
     // New enemy types with unique behaviors
     this.enemyTypes = {
       // Original enemies
@@ -201,6 +222,37 @@ export default class ArenaScene extends Phaser.Scene {
     this.settingsOverlayOpen = false;
     this.pauseMenu = null;
     this.pauseSelectedOption = 0;
+
+    // === FREEZE BUG FIXES ===
+    // Track active tweens for cleanup
+    this.activeTweens = new Set();
+
+    // Track weapon timer for cleanup
+    this.weaponExpiryTimer = null;
+
+    // Track event handlers for cleanup
+    this.xpPopupHandler = null;
+    this.levelUpHandler = null;
+
+    // Spatial hash for efficient collision detection
+    this.spatialHash = null;
+
+    // Map manager for obstacles and biomes
+    this.mapManager = null;
+
+    // Track if this is a continued game
+    this.isContinuedGame = false;
+
+    // Track if rebirth prompt was shown this run
+    this.rebirthPromptShown = false;
+  }
+
+  /**
+   * Phaser init method - receives data passed from scene.start()
+   * @param {object} data - Data from scene transition
+   */
+  init(data) {
+    this.isContinuedGame = data?.continueGame || false;
   }
 
   create() {
@@ -267,12 +319,75 @@ export default class ArenaScene extends Phaser.Scene {
     // Create HUD
     this.createHUD();
 
+    // Handle continued game - restore saved state before starting wave
+    if (this.isContinuedGame) {
+      const savedRun = SaveManager.loadRun();
+      if (savedRun) {
+        SaveManager.applySaveToScene(savedRun, this);
+        // Update HUD to reflect restored state
+        this.updateHUD();
+        console.log(`Continuing from Wave ${this.waveNumber}, Stage ${this.currentStage}`);
+      }
+    } else {
+      // New game - apply rebirth starting weapons
+      const startingWeapons = RebirthManager.getStartingWeapons();
+      if (startingWeapons.length > 0) {
+        startingWeapons.forEach(weaponType => {
+          this.collectedWeapons.add(weaponType);
+        });
+        // Equip first starting weapon
+        if (startingWeapons[0]) {
+          this.currentWeapon = {
+            type: startingWeapons[0],
+            duration: 30000 // 30 seconds
+          };
+        }
+        console.log(`Rebirth bonus: Starting with weapons: ${startingWeapons.join(', ')}`);
+      }
+    }
+
     // Start spawning enemies
     this.startWave();
 
-    // Listen for XP events from hooks
-    window.addEventListener('xpgained', (e) => this.showXPPopup(e.detail.amount));
-    window.addEventListener('levelup', (e) => this.showLevelUp(e.detail.level));
+    // Listen for XP events from hooks (store references for cleanup)
+    this.xpPopupHandler = (e) => this.showXPPopup(e.detail.amount);
+    this.levelUpHandler = (e) => this.showLevelUp(e.detail.level);
+    window.addEventListener('xpgained', this.xpPopupHandler);
+    window.addEventListener('levelup', this.levelUpHandler);
+
+    // Initialize spatial hash for efficient collision detection
+    this.spatialHash = new SpatialHash(100);
+
+    // Initialize map manager
+    this.mapManager = new MapManager(this);
+    this.mapManager.init();
+    this.mapManager.generateMap(this.currentStage);
+    this.mapManager.setupCollisions(this.player, this.enemies, this.projectiles);
+
+    // Initialize EventManager
+    this.eventManager = new EventManager(this);
+
+    // Initialize ShrineManager
+    this.shrineManager = new ShrineManager(this);
+    this.shrineManager.init();
+    this.shrineManager.spawnShrines();
+
+    // Initialize RunModifiers for new games (or load from save)
+    if (!this.isContinuedGame) {
+      // Select 1 modifier (2 after wave 25 - but we start at wave 1)
+      this.activeModifiers = RunModifiers.selectModifiers(1);
+      this.modifierEffects = RunModifiers.getCombinedEffects(this.activeModifiers);
+      RunModifiers.save(this.activeModifiers);
+
+      // Show active modifiers
+      if (this.activeModifiers.length > 0) {
+        this.showModifierAnnouncement();
+      }
+    } else {
+      // Load modifiers from save
+      this.activeModifiers = RunModifiers.load();
+      this.modifierEffects = RunModifiers.getCombinedEffects(this.activeModifiers);
+    }
 
     // For testing - press SPACE to simulate XP gain (only when not paused)
     this.input.keyboard.on('keydown-SPACE', () => {
@@ -643,16 +758,24 @@ export default class ArenaScene extends Phaser.Scene {
     const speedBonus = upgrades.getBonus('speed');
     const attackRateBonus = upgrades.getBonus('attackRate');
 
+    // Apply rebirth all stats bonus
+    const rebirthMultiplier = RebirthManager.getAllStatsMultiplier();
+
+    // Apply modifier and shrine multipliers
+    const modDamageMult = this.modifierEffects?.damageMultiplier || 1;
+    const modHealthMult = this.modifierEffects?.healthMultiplier || 1;
+    const shrineDamageMult = this.shrineDamageBuff || 1;
+
     const baseSpeed = this.baseStats.speed + (level * 8);
     const baseAttackRate = Math.max(100, this.baseStats.attackRate - (level * 15));
     const baseDamage = this.baseStats.attackDamage + (level * 5);
     const baseHealth = this.baseStats.maxHealth + (level * 20);
 
     return {
-      speed: Math.floor(baseSpeed * speedBonus),
-      attackRate: Math.max(50, Math.floor(baseAttackRate / attackRateBonus)), // lower is faster
-      attackDamage: Math.floor(baseDamage * damageBonus),
-      maxHealth: Math.floor(baseHealth * healthBonus)
+      speed: Math.floor(baseSpeed * speedBonus * rebirthMultiplier),
+      attackRate: Math.max(50, Math.floor(baseAttackRate / (attackRateBonus * rebirthMultiplier))), // lower is faster
+      attackDamage: Math.floor(baseDamage * damageBonus * rebirthMultiplier * modDamageMult * shrineDamageMult),
+      maxHealth: Math.floor(baseHealth * healthBonus * rebirthMultiplier * modHealthMult)
     };
   }
 
@@ -1139,6 +1262,61 @@ export default class ArenaScene extends Phaser.Scene {
     this.updateHUD();
   }
 
+  /**
+   * Show modifier announcement at run start
+   */
+  showModifierAnnouncement() {
+    if (!this.activeModifiers || this.activeModifiers.length === 0) return;
+
+    const mod = this.activeModifiers[0];
+
+    // Create banner container
+    const banner = this.add.container(400, 100).setScrollFactor(0).setDepth(1000);
+
+    // Background
+    const bg = this.add.rectangle(0, 0, 350, 60, 0x000000, 0.9);
+    bg.setStrokeStyle(3, mod.color);
+
+    // Modifier text
+    const modText = this.add.text(0, -10, `${mod.icon} ${mod.name}`, {
+      fontFamily: 'monospace',
+      fontSize: '20px',
+      color: `#${mod.color.toString(16).padStart(6, '0')}`,
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // Description
+    const descText = this.add.text(0, 15, mod.desc, {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#aaaaaa'
+    }).setOrigin(0.5);
+
+    banner.add([bg, modText, descText]);
+
+    // Animate in
+    banner.y = -60;
+    this.tweens.add({
+      targets: banner,
+      y: 100,
+      duration: 500,
+      ease: 'Back.easeOut'
+    });
+
+    // Animate out after delay
+    this.time.delayedCall(4000, () => {
+      this.tweens.add({
+        targets: banner,
+        y: -60,
+        alpha: 0,
+        duration: 500,
+        onComplete: () => banner.destroy()
+      });
+    });
+
+    console.log(`Run modifier active: ${mod.name}`);
+  }
+
   startWave() {
     // Check for stage transition
     this.checkStageChange();
@@ -1161,6 +1339,11 @@ export default class ArenaScene extends Phaser.Scene {
     const isMiniBossWave = this.waveNumber >= 10 && this.waveNumber % 20 === 10;
     if (isMiniBossWave) {
       this.spawnMiniBoss();
+    }
+
+    // Try to trigger a random event
+    if (this.eventManager) {
+      this.eventManager.tryTriggerEvent(this.waveNumber);
     }
 
     // Spawn enemies over time (cap the scaling so it doesn't get insane)
@@ -1206,7 +1389,18 @@ export default class ArenaScene extends Phaser.Scene {
 
       // Wave complete bonus XP (more for boss waves)
       const wassBossWave = (this.waveNumber - 1) % 20 === 0;
-      window.VIBE_CODER.addXP(this.waveNumber * (wassBossWave ? 100 : 25));
+      const waveXpMult = (this.xpEventMultiplier || 1) * (this.modifierEffects?.xpMult || 1);
+      window.VIBE_CODER.addXP(Math.floor(this.waveNumber * (wassBossWave ? 100 : 25) * waveXpMult));
+
+      // Auto-save at wave completion
+      this.autoSaveRun();
+
+      // Check for rebirth milestone
+      const rebirthMilestone = RebirthManager.canRebirth(this.waveNumber);
+      if (rebirthMilestone && !this.rebirthPromptShown) {
+        this.showRebirthPrompt(rebirthMilestone);
+        return; // Don't auto-start next wave, wait for player choice
+      }
 
       // Start next wave after delay
       this.time.delayedCall(2000, () => this.startWave());
@@ -1405,7 +1599,9 @@ export default class ArenaScene extends Phaser.Scene {
 
     const enemy = this.enemies.create(x, y, textureName);
     enemy.health = Math.floor(typeData.health * healthScale);
-    enemy.speed = typeData.speed;
+    // Apply event speed modifier (e.g., CURSE event)
+    const speedMod = this.eventEnemySpeedMod || 1;
+    enemy.speed = Math.floor(typeData.speed * speedMod);
     enemy.damage = typeData.damage;
     enemy.xpValue = typeData.xpValue;
     enemy.enemyType = type;
@@ -1437,8 +1633,8 @@ export default class ArenaScene extends Phaser.Scene {
     if (typeData.behavior === 'deathzone') {
       enemy.spawnTime = this.time.now;
       enemy.lifespan = typeData.lifespan;
-      // Pulsing effect
-      this.tweens.add({
+      // Pulsing effect - === FREEZE BUG FIX: Use tracked tween ===
+      this.createTrackedTween({
         targets: enemy,
         alpha: 0.5,
         scale: 1.2,
@@ -1493,8 +1689,8 @@ export default class ArenaScene extends Phaser.Scene {
       // CORS Error - Creates blocking damage zone, stationary
       enemy.blockDuration = typeData.blockDuration;
       enemy.spawnTime = this.time.now;
-      // Pulsing danger zone effect
-      this.tweens.add({
+      // Pulsing danger zone effect - === FREEZE BUG FIX: Use tracked tween ===
+      this.createTrackedTween({
         targets: enemy,
         scale: 1.3,
         alpha: 0.7,
@@ -2067,11 +2263,20 @@ export default class ArenaScene extends Phaser.Scene {
     // Reset everything
     this.isPaused = false;
 
+    // === FREEZE BUG FIX: Clean up weapon expiry timer ===
+    if (this.weaponExpiryTimer) {
+      this.weaponExpiryTimer.remove();
+      this.weaponExpiryTimer = null;
+    }
+
+    // === FREEZE BUG FIX: Clean up tracked tweens on entities ===
+    this.cleanupTrackedTweens();
+
     // Reset player
     this.player.health = this.getStats().maxHealth;
     this.player.maxHealth = this.getStats().maxHealth;
-    this.player.x = 400;
-    this.player.y = 300;
+    this.player.x = this.worldWidth / 2;
+    this.player.y = this.worldHeight / 2;
     this.player.clearTint();
 
     // Clear enemies
@@ -2094,8 +2299,17 @@ export default class ArenaScene extends Phaser.Scene {
     window.VIBE_CODER.kills = 0;
     window.VIBE_CODER.streak = 1;
 
+    // Clear saved run (fresh restart)
+    SaveManager.clearSave();
+
     // Recreate background
     this.createBackground();
+
+    // Regenerate map obstacles
+    if (this.mapManager) {
+      this.mapManager.generateMap(this.currentStage);
+      this.mapManager.setupCollisions(this.player, this.enemies, this.projectiles);
+    }
 
     // Resume physics
     this.physics.resume();
@@ -2133,6 +2347,23 @@ export default class ArenaScene extends Phaser.Scene {
     // Stop music
     Audio.stopMusic();
 
+    // === FREEZE BUG FIX: Clean up event listeners ===
+    this.cleanupEventListeners();
+
+    // === FREEZE BUG FIX: Clean up weapon timer ===
+    if (this.weaponExpiryTimer) {
+      this.weaponExpiryTimer.remove();
+      this.weaponExpiryTimer = null;
+    }
+
+    // === FREEZE BUG FIX: Clean up tracked tweens ===
+    this.cleanupTrackedTweens();
+
+    // Clear map
+    if (this.mapManager) {
+      this.mapManager.clearMap();
+    }
+
     // Fade out and go to title
     this.cameras.main.fade(500, 0, 0, 0);
     this.time.delayedCall(500, () => {
@@ -2145,12 +2376,238 @@ export default class ArenaScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * === FREEZE BUG FIX: Clean up event listeners ===
+   */
+  cleanupEventListeners() {
+    if (this.xpPopupHandler) {
+      window.removeEventListener('xpgained', this.xpPopupHandler);
+      this.xpPopupHandler = null;
+    }
+    if (this.levelUpHandler) {
+      window.removeEventListener('levelup', this.levelUpHandler);
+      this.levelUpHandler = null;
+    }
+    if (this.xpHandler) {
+      window.removeEventListener('xpgained', this.xpHandler);
+      this.xpHandler = null;
+    }
+  }
+
+  /**
+   * Auto-save current run state at wave completion
+   */
+  autoSaveRun() {
+    const vibeState = window.VIBE_CODER;
+
+    const saveData = {
+      wave: this.waveNumber,
+      stage: this.currentStage,
+      player: {
+        level: vibeState.level,
+        xp: vibeState.xp,
+        totalXP: vibeState.totalXP,
+        health: this.player.health,
+        maxHealth: this.player.maxHealth || this.baseStats.maxHealth,
+        kills: vibeState.kills,
+        streak: vibeState.streak || 0
+      },
+      weapons: {
+        current: this.currentWeapon,
+        collected: Array.from(this.collectedWeapons || [])
+      },
+      // Save active modifier IDs
+      modifiers: (this.activeModifiers || []).map(m => m.id)
+    };
+
+    const success = SaveManager.saveRun(saveData);
+    if (success) {
+      // Show subtle save indicator
+      const saveIcon = this.add.text(760, 10, '💾', {
+        fontSize: '16px'
+      }).setScrollFactor(0);
+
+      this.tweens.add({
+        targets: saveIcon,
+        alpha: 0,
+        duration: 1000,
+        delay: 500,
+        onComplete: () => saveIcon.destroy()
+      });
+    }
+  }
+
+  /**
+   * Show rebirth prompt when milestone is reached
+   * @param {object} milestone - Rebirth milestone data
+   */
+  showRebirthPrompt(milestone) {
+    this.rebirthPromptShown = true;
+    this.isPaused = true;
+
+    // Create overlay
+    const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.8)
+      .setScrollFactor(0)
+      .setDepth(1000);
+
+    // Title
+    const title = this.add.text(400, 150, '⭐ REBIRTH AVAILABLE ⭐', {
+      fontFamily: 'monospace',
+      fontSize: '28px',
+      color: '#ffd700',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1001);
+
+    // Milestone info
+    const milestoneText = this.add.text(400, 200, `You've reached Wave ${milestone.wave}!`, {
+      fontFamily: 'monospace',
+      fontSize: '18px',
+      color: '#ffffff'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1001);
+
+    // Rank name
+    const rankText = this.add.text(400, 235, `Unlock: ${milestone.name}`, {
+      fontFamily: 'monospace',
+      fontSize: '20px',
+      color: '#00ff00',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1001);
+
+    // Current rebirth info
+    const currentInfo = RebirthManager.getRebirthInfo();
+    const newBonus = (milestone.rebirth * 5); // 5% per rebirth level
+
+    // Bonuses explanation
+    const bonusLines = [
+      'REBIRTH BONUSES:',
+      `• +${newBonus}% All Stats (permanent)`,
+      `• +${milestone.rebirth * 10}% XP Gain (permanent)`,
+      `• ${Math.min(3, milestone.rebirth)} Starting Weapon(s)`,
+      '',
+      'Warning: Rebirthing resets your current run!'
+    ];
+
+    const bonusText = this.add.text(400, 320, bonusLines.join('\n'), {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#cccccc',
+      align: 'center'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1001);
+
+    // Buttons
+    const rebirthBtn = this.add.text(300, 450, '[ REBIRTH ]', {
+      fontFamily: 'monospace',
+      fontSize: '20px',
+      color: '#00ff00',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1001).setInteractive();
+
+    const continueBtn = this.add.text(500, 450, '[ CONTINUE ]', {
+      fontFamily: 'monospace',
+      fontSize: '20px',
+      color: '#ffff00',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1001).setInteractive();
+
+    // Store elements for cleanup
+    const elements = [overlay, title, milestoneText, rankText, bonusText, rebirthBtn, continueBtn];
+
+    // Button interactions
+    rebirthBtn.on('pointerover', () => rebirthBtn.setColor('#88ff88'));
+    rebirthBtn.on('pointerout', () => rebirthBtn.setColor('#00ff00'));
+    rebirthBtn.on('pointerdown', () => {
+      // Perform rebirth
+      RebirthManager.performRebirth(this.waveNumber, window.VIBE_CODER.kills);
+      elements.forEach(el => el.destroy());
+      this.isPaused = false;
+
+      // Show rebirth complete message and return to title
+      const completeText = this.add.text(400, 300, `REBORN AS: ${milestone.name}`, {
+        fontFamily: 'monospace',
+        fontSize: '24px',
+        color: '#ffd700',
+        fontStyle: 'bold'
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(1001);
+
+      this.time.delayedCall(2000, () => {
+        completeText.destroy();
+        this.quitToTitle();
+      });
+    });
+
+    continueBtn.on('pointerover', () => continueBtn.setColor('#ffff88'));
+    continueBtn.on('pointerout', () => continueBtn.setColor('#ffff00'));
+    continueBtn.on('pointerdown', () => {
+      elements.forEach(el => el.destroy());
+      this.isPaused = false;
+      // Continue to next wave
+      this.time.delayedCall(500, () => this.startWave());
+    });
+  }
+
+  /**
+   * === FREEZE BUG FIX: Clean up tracked tweens on entities ===
+   */
+  cleanupTrackedTweens() {
+    // Stop all tracked tweens
+    this.activeTweens.forEach(tween => {
+      if (tween && tween.isPlaying && tween.isPlaying()) {
+        tween.stop();
+      }
+    });
+    this.activeTweens.clear();
+  }
+
+  /**
+   * === FREEZE BUG FIX: Create a tracked tween that will be cleaned up ===
+   * Use this for infinite tweens on entities that may be destroyed
+   */
+  createTrackedTween(config) {
+    const tween = this.tweens.add(config);
+    this.activeTweens.add(tween);
+
+    // Store reference on target for cleanup when target is destroyed
+    const target = config.targets;
+    if (target && !Array.isArray(target)) {
+      target.trackedTweens = target.trackedTweens || [];
+      target.trackedTweens.push(tween);
+    }
+
+    return tween;
+  }
+
+  /**
+   * === FREEZE BUG FIX: Destroy entity and clean up its tweens ===
+   */
+  destroyWithTweenCleanup(entity) {
+    if (!entity) return;
+
+    // Stop all tweens on this entity
+    if (entity.trackedTweens) {
+      entity.trackedTweens.forEach(tween => {
+        if (tween && tween.isPlaying && tween.isPlaying()) {
+          tween.stop();
+        }
+        this.activeTweens.delete(tween);
+      });
+      entity.trackedTweens = [];
+    }
+
+    // Destroy the entity
+    if (entity.destroy) {
+      entity.destroy();
+    }
+  }
+
   spawnWeaponDrop(x, y, forceRare = false) {
     let weaponType;
     let textureKey;
     let isMelee = false;
 
-    if (forceRare) {
+    // Check for JACKPOT event forcing rare drops
+    const shouldForceRare = forceRare || this.forceRareDrops;
+
+    if (shouldForceRare) {
       // Rare weapons from bosses
       const rarePool = ['rmrf', 'sudo', 'forkbomb'];
       weaponType = Phaser.Utils.Array.GetRandom(rarePool);
@@ -2178,7 +2635,7 @@ export default class ArenaScene extends Phaser.Scene {
 
     const drop = this.weaponDrops.create(x, y, textureKey);
     drop.weaponType = weaponType;
-    drop.isRare = forceRare;
+    drop.isRare = shouldForceRare;
     drop.isMelee = isMelee;
 
     // Bounce animation
@@ -2190,8 +2647,8 @@ export default class ArenaScene extends Phaser.Scene {
       ease: 'Bounce.Out'
     });
 
-    // Pulsing glow (more intense for rare)
-    this.tweens.add({
+    // Pulsing glow (more intense for rare) - === FREEZE BUG FIX: Use tracked tween ===
+    this.createTrackedTween({
       targets: drop,
       scale: forceRare ? 1.5 : 1.3,
       alpha: forceRare ? 1 : 0.7,
@@ -2319,12 +2776,18 @@ export default class ArenaScene extends Phaser.Scene {
       this.cameras.main.flash(100, 255, 255, 0);
     }
 
-    // Start weapon timer
-    this.time.delayedCall(this.currentWeapon.duration, () => {
+    // === FREEZE BUG FIX: Clear previous weapon timer before starting new one ===
+    if (this.weaponExpiryTimer) {
+      this.weaponExpiryTimer.remove();
+    }
+
+    // Start weapon timer (tracked for cleanup)
+    this.weaponExpiryTimer = this.time.delayedCall(this.currentWeapon.duration, () => {
       // Revert to basic if still using this weapon
       if (this.currentWeapon.type === weaponType) {
         this.currentWeapon = { type: 'basic', duration: Infinity };
         this.clearOrbitals();
+        this.weaponExpiryTimer = null;
 
         const revertText = this.add.text(this.player.x, this.player.y - 30, 'WEAPON EXPIRED', {
           fontFamily: 'monospace',
@@ -2376,7 +2839,9 @@ export default class ArenaScene extends Phaser.Scene {
       if (!enemy.active) return;
 
       killCount++;
-      window.VIBE_CODER.addXP(enemy.xpValue);
+      // Apply event and modifier XP multipliers
+      const xpMult = (this.xpEventMultiplier || 1) * (this.modifierEffects?.xpMult || 1);
+      window.VIBE_CODER.addXP(Math.floor(enemy.xpValue * xpMult));
       window.VIBE_CODER.kills++;
 
       // Death particle
@@ -2977,8 +3442,9 @@ export default class ArenaScene extends Phaser.Scene {
 
     // Check death
     if (enemy.health <= 0) {
-      // Award XP
-      window.VIBE_CODER.addXP(enemy.xpValue);
+      // Award XP (apply event and modifier multipliers)
+      const xpMult = (this.xpEventMultiplier || 1) * (this.modifierEffects?.xpMult || 1);
+      window.VIBE_CODER.addXP(Math.floor(enemy.xpValue * xpMult));
       window.VIBE_CODER.kills++;
 
       // GIT CONFLICT: Split into 2 smaller enemies on death
@@ -3126,6 +3592,25 @@ export default class ArenaScene extends Phaser.Scene {
     // Take damage
     player.health -= enemy.damage;
 
+    // Vampiric enemies heal 10% of damage dealt
+    if (this.modifierEffects?.vampiricEnemies && enemy.active) {
+      const healAmount = Math.floor(enemy.damage * 0.1);
+      enemy.health = Math.min(enemy.health + healAmount, enemy.maxHealth || enemy.health + healAmount);
+      // Show heal effect
+      const healText = this.add.text(enemy.x, enemy.y - 20, `+${healAmount}`, {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#00ff00'
+      }).setOrigin(0.5);
+      this.tweens.add({
+        targets: healText,
+        y: enemy.y - 40,
+        alpha: 0,
+        duration: 800,
+        onComplete: () => healText.destroy()
+      });
+    }
+
     // Play damage sound
     Audio.playPlayerHit();
 
@@ -3166,8 +3651,16 @@ export default class ArenaScene extends Phaser.Scene {
   }
 
   playerDeath() {
-    // Save high score before reset
     const state = window.VIBE_CODER;
+    const settings = window.VIBE_SETTINGS;
+
+    // Check for Immortal Mode - respawn without full reset
+    if (settings.immortalMode) {
+      this.immortalModeRespawn();
+      return;
+    }
+
+    // Save high score before reset
     const isNewHighWave = this.waveNumber > this.highWave;
     const isNewHighScore = state.totalXP > this.highScore;
 
@@ -3228,6 +3721,9 @@ export default class ArenaScene extends Phaser.Scene {
       this.currentWeapon = { type: 'basic', duration: Infinity };
       this.clearOrbitals();
 
+      // Clear saved run (player died, starting fresh)
+      SaveManager.clearSave();
+
       // Fade back in
       this.cameras.main.fadeIn(500);
 
@@ -3254,6 +3750,88 @@ export default class ArenaScene extends Phaser.Scene {
 
       // Restart spawning
       this.startWave();
+      this.updateHUD();
+    });
+  }
+
+  /**
+   * Immortal Mode respawn - continue wave with XP penalty
+   */
+  immortalModeRespawn() {
+    const state = window.VIBE_CODER;
+    const settings = window.VIBE_SETTINGS;
+
+    // Apply XP penalty
+    const xpLost = Math.floor(state.xp * settings.xpPenaltyOnDeath);
+    state.xp = Math.max(0, state.xp - xpLost);
+
+    // Show XP penalty
+    const penaltyText = this.add.text(400, 200, `-${xpLost} XP LOST`, {
+      fontFamily: 'monospace',
+      fontSize: '24px',
+      color: '#ff6666',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5).setScrollFactor(0);
+
+    this.tweens.add({
+      targets: penaltyText,
+      y: penaltyText.y - 50,
+      alpha: 0,
+      duration: 2000,
+      onComplete: () => penaltyText.destroy()
+    });
+
+    // Brief fade effect
+    this.cameras.main.fade(300, 0, 0, 0);
+
+    this.time.delayedCall(300, () => {
+      // Respawn at 50% health
+      this.player.health = Math.floor(this.player.maxHealth * 0.5);
+      this.player.x = this.worldWidth / 2;
+      this.player.y = this.worldHeight / 2;
+      this.player.clearTint();
+
+      // Push nearby enemies away (don't kill them)
+      this.enemies.children.each((enemy) => {
+        if (!enemy.active) return;
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
+        if (dist < 200) {
+          // Push enemy away
+          const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, enemy.x, enemy.y);
+          enemy.x += Math.cos(angle) * 200;
+          enemy.y += Math.sin(angle) * 200;
+        }
+      });
+
+      // Brief invincibility
+      this.invincible = true;
+      this.player.setAlpha(0.5);
+      this.time.delayedCall(2000, () => {
+        this.invincible = false;
+        this.player.setAlpha(1);
+      });
+
+      // Fade back in
+      this.cameras.main.fadeIn(300);
+
+      // Show immortal respawn message
+      const respawnText = this.add.text(400, 300, '♾️ IMMORTAL RESPAWN', {
+        fontFamily: 'monospace',
+        fontSize: '24px',
+        color: '#88ff88',
+        fontStyle: 'bold',
+        align: 'center'
+      }).setOrigin(0.5).setScrollFactor(0);
+
+      this.tweens.add({
+        targets: respawnText,
+        alpha: 0,
+        duration: 2000,
+        onComplete: () => respawnText.destroy()
+      });
+
       this.updateHUD();
     });
   }
@@ -3442,7 +4020,12 @@ export default class ArenaScene extends Phaser.Scene {
 
         case 'spawner':
           // DEPENDENCY HELL: Spawns minion bugs periodically
-          if (this.time.now - enemy.lastSpawn > enemy.spawnInterval && enemy.minionCount < enemy.maxMinions) {
+          // === FREEZE BUG FIX: Respect global MAX_ENEMIES cap ===
+          const MAX_ENEMIES = 30;
+          const canSpawnMinion = this.time.now - enemy.lastSpawn > enemy.spawnInterval &&
+                                  enemy.minionCount < enemy.maxMinions &&
+                                  this.enemies.countActive() < MAX_ENEMIES;
+          if (canSpawnMinion) {
             enemy.lastSpawn = this.time.now;
             enemy.minionCount++;
             // Spawn a bug minion nearby
@@ -3753,6 +4336,16 @@ export default class ArenaScene extends Phaser.Scene {
 
     // Update legendary weapons (permanent spinning melee)
     this.updateLegendaryWeapons();
+
+    // Update EventManager (timer bar, event effects)
+    if (this.eventManager) {
+      this.eventManager.update(this.time.now, 0);
+    }
+
+    // Update ShrineManager (proximity checks)
+    if (this.shrineManager) {
+      this.shrineManager.update(this.time.now, 0);
+    }
   }
 
   updateHomingProjectiles() {

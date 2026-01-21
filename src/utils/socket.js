@@ -1,6 +1,8 @@
 // WebSocket connection to Vibe Coder XP Server
+// Port 3001 is used by the Electron built-in server
+// Port 3333 was the old standalone server port
 
-const WS_URL = 'ws://localhost:3333';
+const WS_URL = 'ws://localhost:3001';
 
 let socket = null;
 let reconnectTimer = null;

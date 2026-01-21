@@ -3,6 +3,7 @@ import BootScene from './scenes/BootScene.js';
 import TitleScene from './scenes/TitleScene.js';
 import ArenaScene from './scenes/ArenaScene.js';
 import { connectToXPServer, isConnected } from './utils/socket.js';
+import RebirthManager from './systems/RebirthManager.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -228,6 +229,8 @@ window.VIBE_SETTINGS = {
   sfxVolume: 0.8,         // SFX volume (0-1)
   musicVolume: 0.5,       // Music volume (0-1)
   playerName: '',         // Player name for personalization
+  immortalMode: false,    // Respawn instead of game over (accessibility)
+  xpPenaltyOnDeath: 0.5,  // 50% XP penalty when respawning in immortal mode
 
   load() {
     const saved = localStorage.getItem('vibeCoderSettings');
@@ -240,6 +243,8 @@ window.VIBE_SETTINGS = {
       this.sfxVolume = data.sfxVolume !== undefined ? data.sfxVolume : 0.8;
       this.musicVolume = data.musicVolume !== undefined ? data.musicVolume : 0.5;
       this.playerName = data.playerName || '';
+      this.immortalMode = data.immortalMode !== undefined ? data.immortalMode : false;
+      this.xpPenaltyOnDeath = data.xpPenaltyOnDeath !== undefined ? data.xpPenaltyOnDeath : 0.5;
     }
   },
 
@@ -251,7 +256,9 @@ window.VIBE_SETTINGS = {
       masterVolume: this.masterVolume,
       sfxVolume: this.sfxVolume,
       musicVolume: this.musicVolume,
-      playerName: this.playerName
+      playerName: this.playerName,
+      immortalMode: this.immortalMode,
+      xpPenaltyOnDeath: this.xpPenaltyOnDeath
     }));
   },
 
@@ -310,9 +317,10 @@ window.VIBE_CODER = {
       this.lastXPSource = source;
     }
 
-    // Apply XP gain bonus from upgrades
+    // Apply XP gain bonus from upgrades + rebirth bonus
     const xpBonus = window.VIBE_UPGRADES.getBonus('xpGain');
-    const multipliedXP = Math.floor(amount * this.streak * xpBonus);
+    const rebirthXPBonus = RebirthManager.getXPMultiplier();
+    const multipliedXP = Math.floor(amount * this.streak * xpBonus * rebirthXPBonus);
     this.xp += multipliedXP;
     this.totalXP += multipliedXP;
 

@@ -1,13 +1,18 @@
 import Phaser from 'phaser';
 import * as Audio from '../utils/audio.js';
+import SaveManager from '../systems/SaveManager.js';
+import RebirthManager from '../systems/RebirthManager.js';
+import { isConnected } from '../utils/socket.js';
 
 export default class TitleScene extends Phaser.Scene {
   constructor() {
     super({ key: 'TitleScene' });
     this.selectedOption = 0;
-    this.menuOptions = ['START GAME', 'UPGRADES', 'WEAPONS', 'SETTINGS', 'CONTROLS'];
+    this.baseMenuOptions = ['START GAME', 'UPGRADES', 'WEAPONS', 'SETTINGS', 'CONTROLS'];
+    this.menuOptions = [...this.baseMenuOptions];
     this.isMusicOn = false;
     this.settingsMenuOpen = false;
+    this.hasSavedGame = false;
   }
 
   create() {
@@ -20,6 +25,14 @@ export default class TitleScene extends Phaser.Scene {
       Audio.initAudio();
       Audio.resumeAudio();
     });
+
+    // Check for saved game and update menu options
+    this.hasSavedGame = SaveManager.hasSave();
+    if (this.hasSavedGame) {
+      this.menuOptions = ['CONTINUE', ...this.baseMenuOptions];
+    } else {
+      this.menuOptions = [...this.baseMenuOptions];
+    }
 
     // Create animated background
     this.createBackground();
@@ -217,6 +230,26 @@ export default class TitleScene extends Phaser.Scene {
       fontSize: '14px',
       color: '#00ffff'
     }).setOrigin(0.5);
+
+    // Connection status badge (top right corner)
+    const connected = isConnected();
+    this.connectionBadge = this.add.text(780, 20, connected ? '● LIVE' : '○ OFFLINE', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: connected ? '#00ff00' : '#ff6666'
+    }).setOrigin(1, 0);
+
+    // Pulsing animation for connected state
+    if (connected) {
+      this.tweens.add({
+        targets: this.connectionBadge,
+        alpha: 0.6,
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
 
     // Credits
     this.add.text(400, 570, 'A VAMPIRE SURVIVORS-STYLE IDLE GAME', {
@@ -493,6 +526,20 @@ export default class TitleScene extends Phaser.Scene {
 
     // XP server connected
     this.xpConnectedHandler = () => {
+      // Update connection badge
+      if (this.connectionBadge) {
+        this.connectionBadge.setText('● LIVE');
+        this.connectionBadge.setColor('#00ff00');
+        // Add pulsing animation
+        this.tweens.add({
+          targets: this.connectionBadge,
+          alpha: 0.6,
+          duration: 800,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
+      }
       this.time.delayedCall(500, () => {
         this.sayQuote(Phaser.Utils.Array.GetRandom(this.xpConnectedQuotes));
       });
@@ -500,6 +547,13 @@ export default class TitleScene extends Phaser.Scene {
 
     // XP server disconnected
     this.xpDisconnectedHandler = () => {
+      // Update connection badge
+      if (this.connectionBadge) {
+        this.tweens.killTweensOf(this.connectionBadge);
+        this.connectionBadge.setText('○ OFFLINE');
+        this.connectionBadge.setColor('#ff6666');
+        this.connectionBadge.setAlpha(1);
+      }
       this.sayQuote(Phaser.Utils.Array.GetRandom(this.xpDisconnectedQuotes));
     };
 
@@ -1069,29 +1123,41 @@ export default class TitleScene extends Phaser.Scene {
   selectOption() {
     Audio.initAudio();
 
-    switch (this.selectedOption) {
-      case 0: // START GAME
+    const option = this.menuOptions[this.selectedOption];
+
+    switch (option) {
+      case 'CONTINUE':
+        // Continue from saved game
+        Audio.playLevelUp();
+        this.cameras.main.fade(500, 0, 0, 0);
+        this.time.delayedCall(500, () => {
+          this.scene.start('ArenaScene', { continueGame: true });
+        });
+        break;
+
+      case 'START GAME':
         Audio.playLevelUp();
         this.cameras.main.fade(500, 0, 0, 0);
         this.time.delayedCall(500, () => {
           window.VIBE_CODER.reset();
-          this.scene.start('ArenaScene');
+          SaveManager.clearSave(); // Clear any existing save for fresh start
+          this.scene.start('ArenaScene', { continueGame: false });
         });
         break;
 
-      case 1: // UPGRADES
+      case 'UPGRADES':
         this.showUpgrades();
         break;
 
-      case 2: // WEAPONS
+      case 'WEAPONS':
         this.showWeapons();
         break;
 
-      case 3: // SETTINGS
+      case 'SETTINGS':
         this.showSettings();
         break;
 
-      case 4: // CONTROLS
+      case 'CONTROLS':
         this.showControls();
         break;
     }
@@ -1157,10 +1223,12 @@ export default class TitleScene extends Phaser.Scene {
     this.settingsSelectedIndex = 0;
 
     const settings = window.VIBE_SETTINGS;
-    const overlay = this.add.rectangle(400, 300, 600, 450, 0x000000, 0.95);
+    const isElectron = window.electronAPI?.isElectron;
+
+    const overlay = this.add.rectangle(400, 300, 600, isElectron ? 520 : 450, 0x000000, 0.95);
     overlay.setStrokeStyle(2, 0x00ffff);
 
-    const title = this.add.text(400, 80, 'SETTINGS', {
+    const title = this.add.text(400, isElectron ? 50 : 80, 'SETTINGS', {
       fontFamily: 'monospace',
       fontSize: '28px',
       color: '#00ffff',
@@ -1172,37 +1240,95 @@ export default class TitleScene extends Phaser.Scene {
       { key: 'music', label: 'MUSIC', type: 'toggle', getValue: () => settings.musicEnabled, toggle: () => { settings.toggle('musicEnabled'); Audio.toggleMusic(); }},
       { key: 'sfx', label: 'SOUND FX', type: 'toggle', getValue: () => settings.sfxEnabled, toggle: () => settings.toggle('sfxEnabled') },
       { key: 'autoMove', label: 'AUTO-MOVE', type: 'toggle', getValue: () => settings.autoMove, toggle: () => settings.toggle('autoMove') },
+      { key: 'immortalMode', label: 'IMMORTAL MODE', type: 'toggle', getValue: () => settings.immortalMode, toggle: () => settings.toggle('immortalMode') },
       { key: 'masterVol', label: 'MASTER VOL', type: 'slider', getValue: () => settings.masterVolume, setValue: (v) => settings.setVolume('master', v) },
       { key: 'playerName', label: 'NAME', type: 'input', getValue: () => settings.playerName || '[NOT SET]', setValue: (v) => settings.setPlayerName(v) }
     ];
 
-    const startY = 140;
-    const spacing = 55;
+    // Add Electron-specific settings when running in desktop app
+    if (isElectron) {
+      settingsData.push(
+        { key: 'divider1', label: '── DESKTOP APP ──', type: 'divider' },
+        {
+          key: 'windowMode',
+          label: 'WINDOW MODE',
+          type: 'select',
+          options: ['floating', 'cornerSnap', 'desktopWidget', 'miniHud'],
+          optionLabels: ['Floating', 'Corner Snap', 'Desktop Widget', 'Mini HUD'],
+          getValue: async () => await window.electronAPI.getSetting('windowMode') || 'floating',
+          setValue: (v) => window.electronAPI.setSetting('windowMode', v)
+        },
+        {
+          key: 'alwaysOnTop',
+          label: 'ALWAYS ON TOP',
+          type: 'toggle',
+          getValue: async () => await window.electronAPI.getSetting('alwaysOnTop') || false,
+          toggle: async () => {
+            const current = await window.electronAPI.getSetting('alwaysOnTop');
+            window.electronAPI.setSetting('alwaysOnTop', !current);
+          }
+        }
+      );
+    }
+
+    const startY = isElectron ? 100 : 140;
+    const spacing = isElectron ? 48 : 55;
     const settingTexts = [];
 
-    settingsData.forEach((setting, index) => {
-      let valueStr = '';
-      if (setting.type === 'toggle') {
-        valueStr = setting.getValue() ? '[ON]' : '[OFF]';
-      } else if (setting.type === 'slider') {
-        const val = Math.round(setting.getValue() * 100);
-        const bars = Math.round(val / 10);
-        valueStr = '█'.repeat(bars) + '░'.repeat(10 - bars) + ` ${val}%`;
-      } else if (setting.type === 'input') {
-        valueStr = setting.getValue();
+    // Cache for async values
+    const asyncValues = {};
+
+    // Initialize async values
+    const initAsyncValues = async () => {
+      for (const setting of settingsData) {
+        if (setting.getValue?.constructor?.name === 'AsyncFunction') {
+          asyncValues[setting.key] = await setting.getValue();
+        }
       }
+    };
 
-      const text = this.add.text(400, startY + index * spacing,
-        `${setting.label}\n${valueStr}`, {
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        color: index === 0 ? '#00ffff' : '#888888',
-        align: 'center',
-        lineSpacing: 4
-      }).setOrigin(0.5);
+    const getSettingValue = (setting) => {
+      if (setting.getValue?.constructor?.name === 'AsyncFunction') {
+        return asyncValues[setting.key];
+      }
+      return setting.getValue?.();
+    };
 
-      settingTexts.push({ text, setting });
-    });
+    const renderSettings = () => {
+      settingsData.forEach((setting, index) => {
+        let valueStr = '';
+        if (setting.type === 'divider') {
+          valueStr = '';
+        } else if (setting.type === 'toggle') {
+          valueStr = getSettingValue(setting) ? '[ON]' : '[OFF]';
+        } else if (setting.type === 'slider') {
+          const val = Math.round(getSettingValue(setting) * 100);
+          const bars = Math.round(val / 10);
+          valueStr = '█'.repeat(bars) + '░'.repeat(10 - bars) + ` ${val}%`;
+        } else if (setting.type === 'input') {
+          valueStr = getSettingValue(setting);
+        } else if (setting.type === 'select') {
+          const currentVal = getSettingValue(setting);
+          const optionIndex = setting.options.indexOf(currentVal);
+          valueStr = `< ${setting.optionLabels[optionIndex] || currentVal} >`;
+        }
+
+        const isDivider = setting.type === 'divider';
+        const text = this.add.text(400, startY + index * spacing,
+          isDivider ? setting.label : `${setting.label}\n${valueStr}`, {
+          fontFamily: 'monospace',
+          fontSize: isDivider ? '12px' : '14px',
+          color: isDivider ? '#666666' : (index === 0 ? '#00ffff' : '#888888'),
+          align: 'center',
+          lineSpacing: 4
+        }).setOrigin(0.5);
+
+        settingTexts.push({ text, setting, index });
+      });
+    };
+
+    // Initialize and render
+    initAsyncValues().then(() => renderSettings());
 
     // Selector
     const selector = this.add.text(200, startY, '>', {
@@ -1225,59 +1351,103 @@ export default class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Update visuals
-    const updateVisuals = () => {
+    const updateVisuals = async () => {
+      // Refresh async values
+      for (const setting of settingsData) {
+        if (setting.getValue?.constructor?.name === 'AsyncFunction') {
+          asyncValues[setting.key] = await setting.getValue();
+        }
+      }
+
       settingTexts.forEach((item, index) => {
         let valueStr = '';
-        if (item.setting.type === 'toggle') {
-          valueStr = item.setting.getValue() ? '[ON]' : '[OFF]';
+        const isDivider = item.setting.type === 'divider';
+
+        if (isDivider) {
+          valueStr = '';
+        } else if (item.setting.type === 'toggle') {
+          valueStr = getSettingValue(item.setting) ? '[ON]' : '[OFF]';
         } else if (item.setting.type === 'slider') {
-          const val = Math.round(item.setting.getValue() * 100);
+          const val = Math.round(getSettingValue(item.setting) * 100);
           const bars = Math.round(val / 10);
           valueStr = '█'.repeat(bars) + '░'.repeat(10 - bars) + ` ${val}%`;
         } else if (item.setting.type === 'input') {
-          valueStr = item.setting.getValue();
+          valueStr = getSettingValue(item.setting);
+        } else if (item.setting.type === 'select') {
+          const currentVal = getSettingValue(item.setting);
+          const optionIndex = item.setting.options.indexOf(currentVal);
+          valueStr = `< ${item.setting.optionLabels[optionIndex] || currentVal} >`;
         }
-        item.text.setText(`${item.setting.label}\n${valueStr}`);
-        item.text.setColor(index === this.settingsSelectedIndex ? '#00ffff' : '#888888');
+
+        item.text.setText(isDivider ? item.setting.label : `${item.setting.label}\n${valueStr}`);
+        item.text.setColor(isDivider ? '#666666' : (index === this.settingsSelectedIndex ? '#00ffff' : '#888888'));
       });
       selector.setY(startY + this.settingsSelectedIndex * spacing);
+      // Hide selector on dividers
+      const currentSetting = settingsData[this.settingsSelectedIndex];
+      selector.setVisible(currentSetting?.type !== 'divider');
     };
 
     // Input handlers
     const moveUp = () => {
-      this.settingsSelectedIndex--;
-      if (this.settingsSelectedIndex < 0) this.settingsSelectedIndex = settingsData.length - 1;
+      do {
+        this.settingsSelectedIndex--;
+        if (this.settingsSelectedIndex < 0) this.settingsSelectedIndex = settingsData.length - 1;
+      } while (settingsData[this.settingsSelectedIndex]?.type === 'divider');
       updateVisuals();
       Audio.playXPGain();
     };
 
     const moveDown = () => {
-      this.settingsSelectedIndex++;
-      if (this.settingsSelectedIndex >= settingsData.length) this.settingsSelectedIndex = 0;
+      do {
+        this.settingsSelectedIndex++;
+        if (this.settingsSelectedIndex >= settingsData.length) this.settingsSelectedIndex = 0;
+      } while (settingsData[this.settingsSelectedIndex]?.type === 'divider');
       updateVisuals();
       Audio.playXPGain();
     };
 
-    const adjustLeft = () => {
+    const adjustLeft = async () => {
       const item = settingsData[this.settingsSelectedIndex];
       if (item.type === 'slider') {
         item.setValue(Math.max(0, item.getValue() - 0.1));
         updateVisuals();
+      } else if (item.type === 'select') {
+        const currentVal = getSettingValue(item);
+        const currentIndex = item.options.indexOf(currentVal);
+        const newIndex = currentIndex <= 0 ? item.options.length - 1 : currentIndex - 1;
+        await item.setValue(item.options[newIndex]);
+        asyncValues[item.key] = item.options[newIndex];
+        updateVisuals();
+        Audio.playXPGain();
       }
     };
 
-    const adjustRight = () => {
+    const adjustRight = async () => {
       const item = settingsData[this.settingsSelectedIndex];
       if (item.type === 'slider') {
         item.setValue(Math.min(1, item.getValue() + 0.1));
         updateVisuals();
+      } else if (item.type === 'select') {
+        const currentVal = getSettingValue(item);
+        const currentIndex = item.options.indexOf(currentVal);
+        const newIndex = (currentIndex + 1) % item.options.length;
+        await item.setValue(item.options[newIndex]);
+        asyncValues[item.key] = item.options[newIndex];
+        updateVisuals();
+        Audio.playXPGain();
       }
     };
 
-    const select = () => {
+    const select = async () => {
       const item = settingsData[this.settingsSelectedIndex];
       if (item.type === 'toggle') {
-        item.toggle();
+        if (item.toggle.constructor.name === 'AsyncFunction') {
+          await item.toggle();
+          asyncValues[item.key] = await item.getValue();
+        } else {
+          item.toggle();
+        }
         updateVisuals();
         Audio.playHit();
       } else if (item.type === 'input') {
@@ -1286,6 +1456,9 @@ export default class TitleScene extends Phaser.Scene {
         this.showNameInput(false, () => {
           // Settings will be saved by showNameInput
         });
+      } else if (item.type === 'select') {
+        // Cycle to next option on enter
+        adjustRight();
       }
     };
 
