@@ -320,7 +320,8 @@ window.VIBE_CODER = {
     // Apply XP gain bonus from upgrades + rebirth bonus
     const xpBonus = window.VIBE_UPGRADES.getBonus('xpGain');
     const rebirthXPBonus = RebirthManager.getXPMultiplier();
-    const multipliedXP = Math.floor(amount * this.streak * xpBonus * rebirthXPBonus);
+    const totalMultiplier = Math.min(this.streak * xpBonus * rebirthXPBonus, 3.5);
+    const multipliedXP = Math.floor(amount * totalMultiplier);
     this.xp += multipliedXP;
     this.totalXP += multipliedXP;
 

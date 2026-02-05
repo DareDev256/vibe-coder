@@ -2731,6 +2731,11 @@ export default class ArenaScene extends Phaser.Scene {
     const evolvedWeapon = this.checkWeaponEvolution(weaponType);
     const finalWeaponType = evolvedWeapon || weaponType;
 
+    // === Clear previous weapon timer before assigning new weapon ===
+    if (this.weaponExpiryTimer) {
+      this.weaponExpiryTimer.remove();
+    }
+
     // Set new weapon with duration (rare/evolved weapons last longer, apply upgrade bonus)
     const isEvolved = evolvedWeapon !== null;
     const baseDuration = isEvolved ? 25000 : (isRare ? 20000 : 15000);
@@ -2761,7 +2766,7 @@ export default class ArenaScene extends Phaser.Scene {
     };
 
     const textColor = isRare ? '#ffd700' : '#ffffff';
-    const pickupText = this.add.text(player.x, player.y - 50, weaponNames[weaponType] || weaponType.toUpperCase(), {
+    const pickupText = this.add.text(player.x, player.y - 50, (weaponNames[weaponType] || weaponType.toUpperCase()) + ` [${Math.floor(duration/1000)}s]`, {
       fontFamily: 'monospace',
       fontSize: isRare ? '20px' : '16px',
       color: textColor,
@@ -2786,11 +2791,6 @@ export default class ArenaScene extends Phaser.Scene {
       this.cameras.main.flash(200, 255, 215, 0);
     } else {
       this.cameras.main.flash(100, 255, 255, 0);
-    }
-
-    // === FREEZE BUG FIX: Clear previous weapon timer before starting new one ===
-    if (this.weaponExpiryTimer) {
-      this.weaponExpiryTimer.remove();
     }
 
     // Start weapon timer (tracked for cleanup)
@@ -3533,8 +3533,9 @@ export default class ArenaScene extends Phaser.Scene {
           onComplete: () => deathText.destroy()
         });
 
-        // Massive particle explosion
-        for (let i = 0; i < 30; i++) {
+        // Massive particle explosion (scale down at high waves)
+        const bossParticleCount = this.waveNumber > 50 ? 3 : 5;
+        for (let i = 0; i < bossParticleCount; i++) {
           const particle = this.add.circle(
             enemy.x + Phaser.Math.Between(-50, 50),
             enemy.y + Phaser.Math.Between(-50, 50),
@@ -3575,7 +3576,8 @@ export default class ArenaScene extends Phaser.Scene {
           'race-condition': 0xffff00,
           'miniboss-deadlock': 0xff6600
         };
-        for (let i = 0; i < 5; i++) {
+        const particleCount = this.waveNumber > 50 ? 3 : 5;
+        for (let i = 0; i < particleCount; i++) {
           const particle = this.add.circle(
             enemy.x + Phaser.Math.Between(-20, 20),
             enemy.y + Phaser.Math.Between(-20, 20),
