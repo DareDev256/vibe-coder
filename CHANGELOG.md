@@ -2,6 +2,18 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Test infrastructure** — Vitest testing framework with `npm test` and `npm run test:watch` scripts
+- **66 unit tests** across 4 test suites covering core game systems:
+  - `SpatialHash` — cell key mapping, insert/clear, getNearby radius queries, cross-cell boundary lookups
+  - `RunModifiers` — modifier selection, combined effect multiplier/flag merging, getById/getAll lookups
+  - `SaveManager` — getTimeAgo time formatting across seconds/minutes/hours/days boundaries
+  - `EventManager` — event definitions, active effects, effect application/clearing, trigger guards
+
+---
+
 ## [0.5.0] - 2025-01-15 - The AI Uprising Update
 
 ### Smart Auto-Play System
