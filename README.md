@@ -216,6 +216,8 @@ npm run test:watch  # Watch mode (re-runs on file changes)
 
 ## 📋 Changelog
 
+**v0.6.3** — Fixed double hazard damage, MapManager tween memory leak, WebSocket reconnect race condition, negative health values.
+
 See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
 ## 🎨 Credits

@@ -2,6 +2,16 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.6.3] - 2026-02-10
+
+### Fixed
+- **Double hazard damage** — `handleHazardDamage()` was subtracting health internally AND returning the damage value for the caller to subtract again, causing 2x damage from hazard zones
+- **MapManager tween memory leak** — Infinite tweens (`repeat: -1`) on walls, hazards, and teleporters now tracked and explicitly stopped on `clearMap()`, preventing tween accumulation across stage transitions
+- **WebSocket reconnection race condition** — Added `connecting` state guard to prevent duplicate connections when `onclose` fires during a pending reconnect attempt
+- **Negative health values** — Player and enemy health from hazard damage now clamped to 0 via `Math.max()`, preventing negative health that could break HUD display and auto-play EVADE logic
+
+---
+
 ## [Unreleased]
 
 ### Added

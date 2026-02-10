@@ -75,6 +75,18 @@ export default class MapManager {
     // Teleporter pairs (for connecting distant areas)
     this.teleporterPairs = [];
     this.teleportCooldown = 2000; // ms
+
+    // Track infinite tweens so we can stop them on clearMap()
+    this.activeTweens = [];
+  }
+
+  /**
+   * Create a tween and track it for cleanup on clearMap()
+   */
+  addTrackedTween(config) {
+    const tween = this.scene.tweens.add(config);
+    this.activeTweens.push(tween);
+    return tween;
   }
 
   /**
@@ -191,8 +203,8 @@ export default class MapManager {
     const innerGlow = this.scene.add.rectangle(x, y, width - 8, height - 8, 0x000000, 0.3);
     innerGlow.setStrokeStyle(1, biome.wallTint, 0.3);
 
-    // Pulse animation
-    this.scene.tweens.add({
+    // Pulse animation (tracked for cleanup)
+    this.addTrackedTween({
       targets: wall,
       alpha: 0.4,
       duration: 2000,
@@ -233,8 +245,8 @@ export default class MapManager {
     hazard.damageCooldown = 500; // Damage every 500ms
     this.hazards.add(hazard);
 
-    // Pulse animation
-    this.scene.tweens.add({
+    // Pulse animation (tracked for cleanup)
+    this.addTrackedTween({
       targets: hazard,
       scale: { from: 0.9, to: 1.1 },
       alpha: { from: 0.2, to: 0.4 },
@@ -332,16 +344,16 @@ export default class MapManager {
 
     this.teleporters.add(container);
 
-    // Rotation animation
-    this.scene.tweens.add({
+    // Rotation animation (tracked for cleanup)
+    this.addTrackedTween({
       targets: icon,
       angle: 360,
       duration: 3000,
       repeat: -1
     });
 
-    // Pulse when ready
-    this.scene.tweens.add({
+    // Pulse when ready (tracked for cleanup)
+    this.addTrackedTween({
       targets: inner,
       scale: { from: 0.8, to: 1.2 },
       alpha: { from: 0.2, to: 0.5 },
@@ -431,10 +443,9 @@ export default class MapManager {
 
     hazard.lastDamageTime = now;
 
-    // Apply damage
-    if (entity.health !== undefined) {
-      entity.health -= hazard.damage;
-    }
+    // Return damage amount — caller is responsible for applying it.
+    // This prevents double-damage when both handleHazardDamage and the
+    // overlap callback subtract health independently.
 
     // Visual feedback
     entity.setTint(0xff0000);
@@ -529,13 +540,16 @@ export default class MapManager {
     this.scene.physics.add.overlap(player, this.hazards, (p, hazard) => {
       const damage = this.handleHazardDamage(p, hazard);
       if (damage > 0 && !this.scene.invincible) {
-        p.health -= damage;
+        p.health = Math.max(0, p.health - damage);
         this.scene.updateHUD();
       }
     });
 
     this.scene.physics.add.overlap(enemies, this.hazards, (enemy, hazard) => {
-      this.handleHazardDamage(enemy, hazard);
+      const damage = this.handleHazardDamage(enemy, hazard);
+      if (damage > 0 && enemy.health !== undefined) {
+        enemy.health = Math.max(0, enemy.health - damage);
+      }
     });
 
     // Destructibles can be hit by projectiles
@@ -566,6 +580,14 @@ export default class MapManager {
    * Clear all map elements
    */
   clearMap() {
+    // Stop all infinite tweens before destroying their targets
+    for (const tween of this.activeTweens) {
+      if (tween && tween.isPlaying && tween.isPlaying()) {
+        tween.stop();
+      }
+    }
+    this.activeTweens = [];
+
     if (this.walls) this.walls.clear(true, true);
     if (this.furniture) this.furniture.clear(true, true);
     if (this.hazards) this.hazards.clear(true, true);

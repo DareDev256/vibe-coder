@@ -8,11 +8,21 @@ let socket = null;
 let reconnectTimer = null;
 let connected = false;
 
+let connecting = false;
+
 export function connectToXPServer() {
+  // Guard against concurrent connection attempts
+  if (connecting) return;
   if (socket && socket.readyState === WebSocket.OPEN) {
     return; // Already connected
   }
 
+  // Clear stale socket reference (CLOSING/CLOSED state)
+  if (socket && socket.readyState !== WebSocket.CONNECTING) {
+    socket = null;
+  }
+
+  connecting = true;
   console.log('🔌 Connecting to XP server...');
 
   try {
@@ -20,6 +30,7 @@ export function connectToXPServer() {
 
     socket.onopen = () => {
       connected = true;
+      connecting = false;
       console.log('✅ Connected to XP server!');
 
       // Dispatch connection event
@@ -54,12 +65,14 @@ export function connectToXPServer() {
 
     socket.onclose = () => {
       connected = false;
+      connecting = false;
       console.log('❌ Disconnected from XP server');
 
       // Dispatch disconnection event
       window.dispatchEvent(new CustomEvent('xpserver-disconnected'));
 
-      // Try to reconnect after 3 seconds
+      // Schedule reconnect — keep reconnectTimer set until the next
+      // attempt starts so duplicate timers can't be created.
       if (!reconnectTimer) {
         reconnectTimer = setTimeout(() => {
           reconnectTimer = null;
@@ -68,10 +81,12 @@ export function connectToXPServer() {
       }
     };
 
-    socket.onerror = (error) => {
+    socket.onerror = () => {
       console.log('⚠️ XP server not available (is it running?)');
+      // onclose will fire after onerror, which handles reconnection
     };
   } catch (e) {
+    connecting = false;
     console.log('⚠️ Could not connect to XP server');
   }
 }
@@ -81,6 +96,7 @@ export function isConnected() {
 }
 
 export function disconnect() {
+  connecting = false;
   if (socket) {
     socket.close();
     socket = null;
