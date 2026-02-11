@@ -152,11 +152,12 @@ The character reacts in real-time to your coding activity with speech bubbles an
 vibe-coder/
 ├── src/
 │   ├── main.js               # Game config, upgrades, legendaries
-│   ├── __tests__/             # Vitest unit tests (66 tests)
+│   ├── __tests__/             # Vitest unit tests (102 tests)
 │   │   ├── SpatialHash.test.js
 │   │   ├── RunModifiers.test.js
 │   │   ├── SaveManager.test.js
-│   │   └── EventManager.test.js
+│   │   ├── EventManager.test.js
+│   │   └── RebirthManager.test.js
 │   ├── scenes/
 │   │   ├── BootScene.js       # Procedural texture generation
 │   │   ├── TitleScene.js      # Menu, upgrades, weapon gallery
@@ -212,9 +213,11 @@ npm test            # Run all tests once
 npm run test:watch  # Watch mode (re-runs on file changes)
 ```
 
-66 unit tests cover core game systems: `SpatialHash`, `RunModifiers`, `SaveManager`, and `EventManager`.
+102 unit tests cover core game systems: `SpatialHash`, `RunModifiers`, `SaveManager`, `EventManager`, and `RebirthManager`.
 
 ## 📋 Changelog
+
+**v0.6.4** — Added 36 RebirthManager unit tests (milestones, bonuses, multipliers, weapon selection, prestige info). 102 total tests.
 
 **v0.6.3** — Fixed double hazard damage, MapManager tween memory leak, WebSocket reconnect race condition, negative health values.
 

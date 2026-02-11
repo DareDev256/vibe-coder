@@ -2,6 +2,23 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.6.4] - 2026-02-11
+
+### Added
+- **36 RebirthManager unit tests** — Full coverage of the prestige/rebirth system:
+  - `MILESTONES` — shape validation, ascending wave order, sequential rebirth levels
+  - `load/save` — localStorage persistence, default state, corrupted JSON recovery
+  - `canRebirth` — wave threshold checks, milestone progression, max level guard
+  - `performRebirth` — level updates, kill accumulation, highest wave tracking
+  - `getAllStatsMultiplier / getXPMultiplier` — bonus scaling per rebirth level
+  - `getStartingWeaponCount / getStartingWeapons` — weapon cap, pool validation, no duplicates
+  - `getRebirthInfo` — display data, INTERN fallback, next milestone, lifetime stats
+
+### Changed
+- **Test count** — 66 → 102 total unit tests across 5 test suites
+
+---
+
 ## [0.6.3] - 2026-02-10
 
 ### Fixed
@@ -16,11 +33,12 @@ All notable changes to Vibe Coder will be documented in this file.
 
 ### Added
 - **Test infrastructure** — Vitest testing framework with `npm test` and `npm run test:watch` scripts
-- **66 unit tests** across 4 test suites covering core game systems:
+- **102 unit tests** across 5 test suites covering core game systems:
   - `SpatialHash` — cell key mapping, insert/clear, getNearby radius queries, cross-cell boundary lookups
   - `RunModifiers` — modifier selection, combined effect multiplier/flag merging, getById/getAll lookups
   - `SaveManager` — getTimeAgo time formatting across seconds/minutes/hours/days boundaries
   - `EventManager` — event definitions, active effects, effect application/clearing, trigger guards
+  - `RebirthManager` — milestones, load/save, canRebirth, performRebirth, multipliers, weapon selection, info display
 
 ### Changed
 - **README** — Expanded project structure to document all 6 systems (EventManager, MapManager, RebirthManager, RunModifiers, SaveManager, ShrineManager), all 3 utils (SpatialHash, audio, socket), and the test directory
