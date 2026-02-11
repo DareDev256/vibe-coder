@@ -2,6 +2,25 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.6.5] - 2026-02-11
+
+### Changed
+- **README overhaul** — Portfolio-grade restructure documenting all game systems:
+  - Added **Rebirth (Prestige) System** — 5 ranks from Junior Dev to Architect with stat/XP/weapon bonuses
+  - Added **Run Modifiers** — 5 mutators (Glass Cannon, Vampiric Enemies, Bullet Hell, etc.)
+  - Added **Interactive Shrines** — 5 shrine types with risk/reward mechanics (Power, Gamble, Wisdom, Protection, Chaos)
+  - Added **Mid-Wave Events** — 5 dynamic events (Boss Incoming, Double XP, Curse, Jackpot, Swarm)
+  - Added **Map Features** — Walls, hazard zones, destructible crates, teleporter pairs per biome
+  - Added **Weapon Evolution Recipes** — Showcased 5 of 10 evolution combos with "discover more" hook
+  - Added **Deadlock mini-boss** to boss table
+  - Added **E key** for shrine interaction to Controls section
+  - Added **Save & Continue** system documentation
+  - Restructured features into Core Gameplay → Meta-Progression → Run Variety narrative flow
+  - Added Tests badge to shield row, Vitest to Tech Stack
+  - Expanded Permanent Upgrades table with per-level values and max total bonuses
+
+---
+
 ## [0.6.4] - 2026-02-11
 
 ### Added

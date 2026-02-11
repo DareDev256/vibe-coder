@@ -4,70 +4,153 @@ A vampire survivors-style idle game where you earn XP from real coding activity.
 
 ### [▶️ Play Now](https://daredev256.github.io/vibe-coder/) | [⬇️ Download Desktop App](#-desktop-app) | [📖 Setup Guide](./SETUP.md) | [📋 Changelog](./CHANGELOG.md)
 
-![Phaser 3](https://img.shields.io/badge/Phaser-3.x-blue) ![Vite](https://img.shields.io/badge/Vite-7.x-purple) ![Electron](https://img.shields.io/badge/Electron-33.x-9feaf9) ![Node](https://img.shields.io/badge/Node-18+-green) ![Play Online](https://img.shields.io/badge/Play-Online-brightgreen)
+![Phaser 3](https://img.shields.io/badge/Phaser-3.x-blue) ![Vite](https://img.shields.io/badge/Vite-7.x-purple) ![Electron](https://img.shields.io/badge/Electron-33.x-9feaf9) ![Node](https://img.shields.io/badge/Node-18+-green) ![Play Online](https://img.shields.io/badge/Play-Online-brightgreen) ![Tests](https://img.shields.io/badge/Tests-102_passing-brightgreen)
 
 ## 🎯 About
 
 Vibe Coder is an idle survival game that rewards you for coding. Connect it to your development workflow and watch your character grow stronger as you write code. Every tool call, every prompt, every commit powers up your in-game character.
 
 **While you code, your character:**
-- 🎯 Hunts enemies intelligently
-- 🛡️ Evades when overwhelmed
+- 🎯 Hunts enemies with smart auto-play AI (HUNT / EVADE / IDLE modes)
+- ⚔️ Auto-attacks with 26 weapons including 10 evolved combos
+- 🔄 Earns permanent prestige bonuses through the Rebirth system
+- 🎲 Discovers interactive shrines with risk/reward choices
 - 💬 Comments on your coding with 80+ unique quotes
-- ⚔️ Auto-attacks with your equipped weapons
-- 📈 Levels up from your real coding XP
 
-## ✨ Features
+## ✨ Core Gameplay
 
 ### 🎮 Smart Auto-Play AI
-- **HUNT Mode** - Actively moves toward enemies
-- **EVADE Mode** - Kites when low HP or swarmed
-- **IDLE Mode** - Wanders when area is clear
-- Mode-specific quotes and visual indicators
+- **HUNT Mode** ⚔️ - Actively pursues nearest enemy within optimal range
+- **EVADE Mode** 🛡️ - Circle-strafes when HP < 30% or swarmed by 4+ enemies
+- **IDLE Mode** 😴 - Gentle wander toward center when area is clear
+- Mode-specific speech bubbles and visual indicators
 
 ### 👾 18 Enemy Types
-| Type | Examples |
-|------|----------|
-| **Classic** | Bug, Glitch, Memory Leak, Syntax Error |
-| **Coding** | Segfault, Dependency Hell, Git Conflict, CORS Error |
-| **AI-Themed** | Hallucination, Token Overflow, Prompt Injection, Mode Collapse |
+| Type | Examples | Unique Behaviors |
+|------|----------|-----------------|
+| **Classic** | Bug, Glitch, Memory Leak, Syntax Error | Teleporting, orbiting, erratic speed |
+| **Coding** | Segfault, Dependency Hell, Git Conflict | Instant-kill zones, minion spawning, splitting |
+| **AI-Themed** | Hallucination, Prompt Injection, Mode Collapse | Fake enemies, movement hijacking, self-cloning |
 
-### 👹 4 Epic Bosses
-- **Stack Overflow** (Wave 20) - Spawns minions
-- **Null Pointer** (Wave 40) - Teleports
-- **Memory Leak Prime** (Wave 60) - Splits on damage
-- **Kernel Panic** (Wave 80) - Enrages at low HP
+### 👹 4 Epic Bosses + Mini-Boss
+| Boss | Wave | Special Ability |
+|------|------|-----------------|
+| **Stack Overflow** | 20 | Spawns minions |
+| **Null Pointer** | 40 | Teleportation |
+| **Memory Leak Prime** | 60 | Splits on damage |
+| **Kernel Panic** | 80 | Enrages at low HP |
+| **Deadlock** | Mini | Freezes player on hit |
 
-### ⚔️ 26 Weapons
+### ⚔️ 26 Weapons & Evolution System
 | Category | Count | Examples |
 |----------|-------|----------|
 | Ranged | 9 | Basic, Spread, Pierce, Homing, Freeze |
 | Melee | 4 | Sword, Spear, Boomerang, Kunai |
 | Rare | 3 | `rm -rf`, `sudo`, Fork Bomb |
 | Legendary | 3 | Hunter's Warglaive, Void Reaper, Celestial Blade |
-| Evolved | 10 | Laser Beam, Chain Lightning, Blizzard |
+| **Evolved** | **10** | **Combine 2 weapons for super forms** |
 
-### 🌍 6 Stage Themes
+**Weapon Evolution Recipes** — Collect both ingredients to evolve:
+
+| Recipe | Result |
+|--------|--------|
+| Spread + Pierce | LASER BEAM |
+| Pierce + Rapid | CHAIN LIGHTNING |
+| Spread + Rapid | BULLET HELL |
+| Freeze + AOE | BLIZZARD |
+| Homing + Pierce | SEEKING MISSILE |
+| + 5 more recipes to discover... | |
+
+### 🌍 6 Biome Stages
+Each biome has distinct visuals, environmental hazards, and destructible objects:
+
 Debug Zone → Memory Banks → Network Layer → Kernel Space → Cloud Cluster → Singularity
 
-### 📊 7 Meta-Progression Upgrades
-Persistent buffs: Damage, Health, Speed, Attack Rate, XP Gain, Crit Chance, Duration
+**Map features:** Walls (block movement + projectiles), hazard zones (5-20 damage), destructible crates (drop XP/weapons), and teleporter pairs for fast traversal.
 
-### 🎵 Full Audio System
-- 5 procedural synthwave music tracks
-- 13+ sound effects (weapons, hits, pickups)
-- Master/SFX/Music volume controls
+## 🔄 Meta-Progression
 
-### 💬 80+ Character Quotes
-- Coding reactions: "Code go brrrr", "10x developer mode"
-- AI-specific: Claude, Cursor, Gemini, Codex reactions
-- Time-based easter eggs for late night coding
+### 🏆 Rebirth (Prestige) System
+Reach wave milestones to permanently power up across all future runs:
+
+| Rank | Wave | Bonus |
+|------|------|-------|
+| Junior Dev | 50 | +5% all stats, +10% XP |
+| Mid-Level | 100 | +10% all stats, +20% XP, +1 starting weapon |
+| Senior Dev | 150 | +15% all stats, +30% XP, +2 starting weapons |
+| Tech Lead | 200 | +20% all stats, +40% XP, +3 starting weapons |
+| Architect | 250 | +25% all stats, +50% XP, +3 starting weapons |
+
+Tracks lifetime stats: total rebirths, lifetime kills, highest wave ever reached.
+
+### 📊 7 Permanent Upgrades
+Spend XP on persistent buffs that carry across runs:
+
+| Upgrade | Per Level | Max | Total Bonus |
+|---------|-----------|-----|-------------|
+| DAMAGE+ | +10% | 10 | +100% |
+| HEALTH+ | +15% | 10 | +150% |
+| SPEED+ | +8% | 8 | +64% |
+| ATTACK+ | +12% | 8 | +96% |
+| XP GAIN+ | +15% | 10 | +150% |
+| CRIT+ | +5% | 6 | +30% |
+| DURATION+ | +20% | 5 | +100% |
+
+### 🎖️ 3 Legendary Weapons
+Ultra-rare permanent unlocks that persist forever:
+
+| Legendary | Drop Rate | Effect |
+|-----------|-----------|--------|
+| Hunter's Warglaive | 0.01% | Twin spinning blades |
+| Void Reaper | 0.05% | Soul-consuming scythe |
+| Celestial Blade | 0.03% | Triple starlight orbitals |
+
+## 🎲 Run Variety
+
+### ⚔️ Run Modifiers
+Mutators applied at run start that change how you play:
+
+| Modifier | Effect |
+|----------|--------|
+| **Glass Cannon** | 2x damage, 50% max health |
+| **Vampiric Enemies** | Enemies heal 10% of damage dealt |
+| **Weapon Frenzy** | -50% weapon duration, +50% drop rate |
+| **Bullet Hell** | +100% projectiles, +50% enemies |
+| **Marathon** | Waves 50% longer, +25% XP |
+
+### 🎪 Mid-Wave Events
+15% chance per wave (starting wave 5) to trigger dynamic chaos:
+
+| Event | Duration | Effect |
+|-------|----------|--------|
+| **Boss Incoming** 💀 | 30s | Countdown, then mini-boss spawns |
+| **Double XP** ⭐ | 20s | 2x XP from all sources |
+| **Curse** 😈 | 60s | All enemies +50% speed |
+| **Jackpot** 🎰 | 30s | Only rare weapon drops |
+| **Swarm** 🐛 | 15s | 20 enemies spawn rapidly |
+
+### 🏛️ Interactive Shrines
+2 shrines spawn per stage. Walk up and press **E** to activate:
+
+| Shrine | Cost | Reward |
+|--------|------|--------|
+| **Power** ⚔️ | 25% HP | +50% damage for 30s |
+| **Gamble** 🎲 | Free | Random: Jackpot XP, Weapon, Heal, Curse, or Nothing |
+| **Wisdom** 📚 | 500 XP | Instant level up |
+| **Protection** 🛡️ | Current weapon | 10s invincibility |
+| **Chaos** 🌀 | 10% HP | Random: Double XP, Speed, Invincibility, Enemy Freeze, Curse, or Boss |
+
+### 💾 Save & Continue
+- Auto-saves at wave completion
+- **CONTINUE** option on title screen with "Wave X, Stage Y, Xm ago" summary
+- Saves expire after 24 hours
 
 ## 🎮 Controls
 
 | Key | Action |
 |-----|--------|
 | WASD / Arrows | Move |
+| E | Interact with Shrines |
 | ESC / P | Pause |
 | M | Toggle Music |
 | SPACE | Manual XP (offline mode) |
@@ -82,14 +165,9 @@ Press **SPACE** to manually gain XP, or connect the hooks for real coding reward
 
 ### Local Development
 ```bash
-# Install dependencies
-npm install
-
-# Start the game
-npm run dev
-
-# (Optional) Start XP server for live coding rewards
-npm run server
+npm install       # Install dependencies
+npm run dev       # Start the game
+npm run server    # (Optional) XP server for live coding rewards
 ```
 
 Open http://localhost:5173 in your browser.
@@ -109,18 +187,12 @@ Check the [Releases](https://github.com/DareDev256/vibe-coder/releases) page for
 - **Built-in XP Server** - No separate server needed
 - **4 Window Modes** - Floating, Corner Snap, Desktop Widget, Mini HUD
 - **Global Shortcuts** - `Cmd/Ctrl+Shift+V` toggle, `Cmd/Ctrl+Shift+W` cycle modes
-- **Rich Tray Menu** - See game stats at a glance
 
 ### Build from Source
 ```bash
-# Development mode (hot reload)
-npm run electron:dev
-
-# Build distributable
-npm run electron:build
+npm run electron:dev    # Development mode (hot reload)
+npm run electron:build  # Build distributable
 ```
-
-The desktop app includes a built-in WebSocket server on port 3001, so Claude Code hooks connect automatically!
 
 ## 🔌 Claude Code Integration
 
@@ -144,8 +216,6 @@ Connect Vibe Coder to Claude Code for real XP gains while coding!
 | Response | +5 |
 | Message | +10 |
 
-The character reacts in real-time to your coding activity with speech bubbles and intelligent auto-play!
-
 ## 📁 Project Structure
 
 ```
@@ -153,58 +223,37 @@ vibe-coder/
 ├── src/
 │   ├── main.js               # Game config, upgrades, legendaries
 │   ├── __tests__/             # Vitest unit tests (102 tests)
-│   │   ├── SpatialHash.test.js
-│   │   ├── RunModifiers.test.js
-│   │   ├── SaveManager.test.js
-│   │   ├── EventManager.test.js
-│   │   └── RebirthManager.test.js
 │   ├── scenes/
 │   │   ├── BootScene.js       # Procedural texture generation
 │   │   ├── TitleScene.js      # Menu, upgrades, weapon gallery
 │   │   └── ArenaScene.js      # Main gameplay, enemies, bosses
 │   ├── systems/
-│   │   ├── EventManager.js    # Mid-wave random events (boss, double XP, curse)
+│   │   ├── EventManager.js    # Mid-wave random events
 │   │   ├── MapManager.js      # Procedural map generation & biomes
 │   │   ├── RebirthManager.js  # Prestige system (permanent bonuses)
-│   │   ├── RunModifiers.js    # Run-start mutators (glass cannon, etc.)
+│   │   ├── RunModifiers.js    # Run-start mutators
 │   │   ├── SaveManager.js     # Run continuation & auto-save
 │   │   └── ShrineManager.js   # Interactive risk/reward shrines
 │   └── utils/
 │       ├── SpatialHash.js     # O(n) spatial collision detection
 │       ├── audio.js           # Procedural sound system
 │       └── socket.js          # WebSocket XP client
-├── electron/                  # Desktop app wrapper
-│   ├── main.js                # Electron main process
-│   ├── preload.js             # IPC bridge
-│   ├── server.js              # Built-in WebSocket server
-│   ├── tray.js                # System tray integration
-│   └── windows.js             # Window mode management
+├── electron/                  # Desktop app (main, tray, windows)
 ├── server/                    # Standalone XP server
 ├── hooks/                     # Claude Code hooks
-│   └── on-prompt.sh
 └── index.html
 ```
-
-## 🎖️ Legendary Weapons
-
-Ultra-rare permanent unlocks that persist forever:
-
-| Legendary | Drop Rate | Effect |
-|-----------|-----------|--------|
-| Hunter's Warglaive | 0.01% | Twin spinning blades |
-| Void Reaper | 0.05% | Soul-consuming scythe |
-| Celestial Blade | 0.03% | Triple starlight orbitals |
 
 ## 🔧 Tech Stack
 
 - **Phaser 3** - Game engine
 - **Vite** - Build tool & dev server
 - **Electron** - Desktop app wrapper
+- **Vitest** - Unit testing (102 tests)
 - **Web Audio API** - Procedural sound generation
 - **Canvas API** - Procedural graphics (no external assets!)
 - **WebSocket** - Real-time XP streaming
 - **Node.js** - XP server backend
-- **electron-builder** - Cross-platform packaging
 
 ## 🧪 Testing
 
@@ -217,9 +266,9 @@ npm run test:watch  # Watch mode (re-runs on file changes)
 
 ## 📋 Changelog
 
-**v0.6.4** — Added 36 RebirthManager unit tests (milestones, bonuses, multipliers, weapon selection, prestige info). 102 total tests.
+**v0.6.5** — Portfolio-grade README documenting all game systems: Rebirth prestige, Run Modifiers, Shrines, Mid-Wave Events, Map biomes, Weapon Evolution recipes.
 
-**v0.6.3** — Fixed double hazard damage, MapManager tween memory leak, WebSocket reconnect race condition, negative health values.
+**v0.6.4** — Added 36 RebirthManager unit tests. 102 total tests.
 
 See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
