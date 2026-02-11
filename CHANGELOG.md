@@ -2,6 +2,16 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.6.6] - 2026-02-11
+
+### Fixed
+- **Split enemy health calculation** — Git-conflict split enemies used `enemy.health` (already 0 at death) instead of `maxHealth`, causing them to always spawn with only 10 HP instead of the intended ~28 HP
+- **Vampiric healing uncapped** — Enemies with the vampiric modifier could heal infinitely past their spawn health because `maxHealth` was never set on regular enemies, and the fallback `enemy.health + healAmount` was always equal to the healed value
+- **Missing `maxHealth` on regular enemies** — Added `maxHealth` property at spawn time, fixing both the vampiric healing cap and the split health calculation
+- **XP server event listener memory leak** — `xpserver-connected` and `xpserver-disconnected` window event listeners were never removed on scene shutdown, leaking handlers on every game restart
+
+---
+
 ## [0.6.5] - 2026-02-11
 
 ### Changed

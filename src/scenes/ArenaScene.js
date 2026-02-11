@@ -1025,16 +1025,17 @@ export default class ArenaScene extends Phaser.Scene {
       color: '#ffff00'
     }).setOrigin(0.5).setScrollFactor(0);
 
-    // Listen for connection events
-    window.addEventListener('xpserver-connected', () => {
+    // Listen for connection events (store refs for cleanup)
+    this.xpServerConnectedHandler = () => {
       this.connectionText.setText('🟢 LIVE - XP FROM CODING | M = MUSIC');
       this.connectionText.setColor('#00ff00');
-    });
-
-    window.addEventListener('xpserver-disconnected', () => {
+    };
+    this.xpServerDisconnectedHandler = () => {
       this.connectionText.setText('🔴 OFFLINE - SPACE FOR XP | M = MUSIC');
       this.connectionText.setColor('#ff6666');
-    });
+    };
+    window.addEventListener('xpserver-connected', this.xpServerConnectedHandler);
+    window.addEventListener('xpserver-disconnected', this.xpServerDisconnectedHandler);
 
     // Check if already connected (connection may have happened before scene started)
     if (isConnected()) {
@@ -1611,6 +1612,7 @@ export default class ArenaScene extends Phaser.Scene {
 
     const enemy = this.enemies.create(x, y, textureName);
     enemy.health = Math.floor(typeData.health * healthScale);
+    enemy.maxHealth = enemy.health;
     // Apply event speed modifier (e.g., CURSE event)
     const speedMod = this.eventEnemySpeedMod || 1;
     enemy.speed = Math.floor(typeData.speed * speedMod);
@@ -2403,6 +2405,14 @@ export default class ArenaScene extends Phaser.Scene {
     if (this.xpHandler) {
       window.removeEventListener('xpgained', this.xpHandler);
       this.xpHandler = null;
+    }
+    if (this.xpServerConnectedHandler) {
+      window.removeEventListener('xpserver-connected', this.xpServerConnectedHandler);
+      this.xpServerConnectedHandler = null;
+    }
+    if (this.xpServerDisconnectedHandler) {
+      window.removeEventListener('xpserver-disconnected', this.xpServerDisconnectedHandler);
+      this.xpServerDisconnectedHandler = null;
     }
   }
 
@@ -3469,7 +3479,9 @@ export default class ArenaScene extends Phaser.Scene {
             enemy.y + offsetY,
             'enemy-git-conflict'
           );
-          splitEnemy.health = Math.floor(enemy.health * 0.4) + 10;
+          const parentMaxHealth = enemy.maxHealth || this.enemyTypes['git-conflict'].health;
+          splitEnemy.health = Math.floor(parentMaxHealth * 0.4) + 10;
+          splitEnemy.maxHealth = splitEnemy.health;
           splitEnemy.speed = enemy.speed * 1.2;
           splitEnemy.damage = Math.floor(enemy.damage * 0.7);
           splitEnemy.xpValue = Math.floor(enemy.xpValue * 0.3);
@@ -3609,7 +3621,7 @@ export default class ArenaScene extends Phaser.Scene {
     // Vampiric enemies heal 10% of damage dealt
     if (this.modifierEffects?.vampiricEnemies && enemy.active) {
       const healAmount = Math.floor(enemy.damage * 0.1);
-      enemy.health = Math.min(enemy.health + healAmount, enemy.maxHealth || enemy.health + healAmount);
+      enemy.health = Math.min(enemy.health + healAmount, enemy.maxHealth || enemy.health);
       // Show heal effect
       const healText = this.add.text(enemy.x, enemy.y - 20, `+${healAmount}`, {
         fontFamily: 'monospace',

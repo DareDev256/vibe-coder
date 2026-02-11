@@ -266,6 +266,8 @@ npm run test:watch  # Watch mode (re-runs on file changes)
 
 ## 📋 Changelog
 
+**v0.6.6** — Fixed split enemy health (spawned with 10 HP instead of ~28), uncapped vampiric healing, missing `maxHealth` on enemies, and XP server event listener memory leak.
+
 **v0.6.5** — Portfolio-grade README documenting all game systems: Rebirth prestige, Run Modifiers, Shrines, Mid-Wave Events, Map biomes, Weapon Evolution recipes.
 
 **v0.6.4** — Added 36 RebirthManager unit tests. 102 total tests.
