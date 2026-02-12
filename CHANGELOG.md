@@ -2,6 +2,26 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.7.6] - 2026-02-12
+
+### Added
+- **47 CombatEdgeCases unit tests** — New test suite targeting edge-case-prone combat formulas identified from recent fix history:
+  - `Enemy Health Scaling` — level 0 baseline, linear scaling, 3x cap at level 40+, integer HP output
+  - `Boss Health Scaling` — wave-based scaling (1.5x at wave 20, 2x at 40), mini-boss scales slower than boss
+  - `Boss Selection by Wave` — tier boundaries at wave 40/60/80, boundary-exact tests (wave 39 vs 40)
+  - `Crit Damage Pipeline` — non-crit passthrough, crit doubling, zero-damage crit edge case
+  - `Fork Bomb Child Damage Decay` — 0.7x per generation, `damage=1` decays to 0 (terminates fork chains), floor correctness
+  - `Git-Conflict Split Stats` — 40% HP + 10 floor, 1.2x speed, 0.7x damage, 0.3x XP, two children give less XP than parent
+  - `Vampiric Enemy Healing` — 10% heal, max-health cap, floor on fractional heal, zero-damage no-heal
+  - `Wave Complete XP Reward` — boss vs non-boss multiplier, multiplicative XP stacking, integer output
+  - `Spawn Count Capping` — linear scaling, hard cap at 25, boundary wave
+  - `Spawn Pool Edge Cases` — negative wave returns empty, high wave includes all types, weight correctness, total pool size validation
+
+### Changed
+- **Test count** — 193 → 240 total unit tests across 8 test suites
+
+---
+
 ## [0.7.5] - 2026-02-12
 
 ### Added

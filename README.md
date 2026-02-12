@@ -4,7 +4,7 @@ A vampire survivors-style idle game where you earn XP from real coding activity.
 
 ### [▶️ Play Now](https://daredev256.github.io/vibe-coder/) | [⬇️ Download Desktop App](#-desktop-app) | [📖 Setup Guide](./SETUP.md) | [📋 Changelog](./CHANGELOG.md)
 
-![Phaser 3](https://img.shields.io/badge/Phaser-3.x-blue) ![Vite](https://img.shields.io/badge/Vite-7.x-purple) ![Electron](https://img.shields.io/badge/Electron-33.x-9feaf9) ![Node](https://img.shields.io/badge/Node-18+-green) ![Tests](https://img.shields.io/badge/Tests-193_passing-brightgreen) ![Deploy](https://img.shields.io/github/actions/workflow/status/DareDev256/vibe-coder/deploy.yml?label=Deploy) ![Play Online](https://img.shields.io/badge/Play-Online-brightgreen)
+![Phaser 3](https://img.shields.io/badge/Phaser-3.x-blue) ![Vite](https://img.shields.io/badge/Vite-7.x-purple) ![Electron](https://img.shields.io/badge/Electron-33.x-9feaf9) ![Node](https://img.shields.io/badge/Node-18+-green) ![Tests](https://img.shields.io/badge/Tests-240_passing-brightgreen) ![Deploy](https://img.shields.io/github/actions/workflow/status/DareDev256/vibe-coder/deploy.yml?label=Deploy) ![Play Online](https://img.shields.io/badge/Play-Online-brightgreen)
 
 <div align="center">
   <img src="docs/gameplay.png" alt="Vibe Coder gameplay — Wave 7 with Double XP event, enemies, shrines, and procedural map" width="720">
@@ -253,7 +253,7 @@ Connect Vibe Coder to your AI coding assistant for real XP gains while coding!
 vibe-coder/
 ├── src/
 │   ├── main.js               # Game config, upgrades, legendaries
-│   ├── __tests__/             # Vitest unit tests (193 tests)
+│   ├── __tests__/             # Vitest unit tests (240 tests)
 │   ├── scenes/
 │   │   ├── BootScene.js       # Procedural texture generation
 │   │   ├── TitleScene.js      # Menu, upgrades, weapon gallery
@@ -285,14 +285,14 @@ vibe-coder/
 | **Procedural maps** | Each biome generates walls, hazards, destructibles, and teleporters at runtime — no static level data |
 | **Single-source color system** | All 30 weapon colors derived from `weaponTypes`/`evolutionRecipes` — zero duplication, impossible to mismatch |
 | **Data-driven enemy spawning** | Enemy wave timing, spawn weights, and textures all live in `enemyTypes` — adding an enemy is a single line change |
-| **193 unit tests** | Core systems + game mechanics + shrine data + save lifecycle tested with Vitest |
+| **240 unit tests** | Core systems + game mechanics + shrine data + save lifecycle tested with Vitest |
 
 ## 🔧 Tech Stack
 
 - **Phaser 3** - Game engine
 - **Vite** - Build tool & dev server
 - **Electron** - Desktop app wrapper
-- **Vitest** - Unit testing (193 tests)
+- **Vitest** - Unit testing (240 tests)
 - **Web Audio API** - Procedural sound generation
 - **Canvas API** - Procedural graphics (no external assets!)
 - **WebSocket** - Real-time XP streaming
@@ -305,9 +305,11 @@ npm test            # Run all tests once
 npm run test:watch  # Watch mode (re-runs on file changes)
 ```
 
-193 unit tests across 7 test suites cover core game systems (`SpatialHash`, `RunModifiers`, `SaveManager`, `EventManager`, `RebirthManager`, `ShrineManager`) and game mechanics (`GameMechanics` — XP curves, player stat scaling, spawn pools, weapon balance, evolution recipes, crit chance).
+240 unit tests across 8 test suites cover core game systems (`SpatialHash`, `RunModifiers`, `SaveManager`, `EventManager`, `RebirthManager`, `ShrineManager`), game mechanics (`GameMechanics` — XP curves, player stat scaling, spawn pools, weapon balance, evolution recipes, crit chance), and combat edge cases (`CombatEdgeCases` — health scaling caps, boss tier selection, crit pipeline, fork bomb decay, git-conflict splits, vampiric healing, wave XP stacking, spawn capping).
 
 ## 📋 Changelog
+
+**v0.7.6** — Added 47 combat edge-case tests targeting bug-prone formulas from recent fix history: health scaling caps, boss tier boundaries, fork bomb damage decay, git-conflict split stats, vampiric healing, wave XP multiplier stacking, spawn count capping, negative-wave spawn pool guard.
 
 **v0.7.5** — Added 50 unit tests: 31 ShrineManager tests (shrine definitions, gamble weight distribution, chaos effects, cost logic, buff multiplier), 19 SaveManager persistence tests (save/load lifecycle, 24h expiry, corrupted JSON recovery, summary).
 

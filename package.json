@@ -1,6 +1,6 @@
 {
   "name": "vibe-coder",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "description": "Vampire Survivors-style idle game powered by your Claude Code activity",
   "type": "module",
   "main": "electron/main.js",
