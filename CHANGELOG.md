@@ -2,6 +2,23 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.7.4] - 2026-02-12
+
+### Added
+- **41 GameMechanics unit tests** — New test suite covering core gameplay formulas and data integrity:
+  - `XP Curve` — monotonicity, integer output, known-value checks, positive-only guarantees
+  - `Player Stats Scaling` — base stat formulas, attack rate floor clamping, modifier stacking (damage, health, shrine, rebirth), Glass Cannon half-health
+  - `Spawn Pool` — weighted pool builder, waveMin enforcement (no early spawns), spawnWeight frequency, pool growth across waves
+  - `Weapon System` — 16 weapons with unique colors, damage non-negativity, melee/ranged invariants, balance relationships (spread trades damage for projectiles, pierce > basic damage)
+  - `Evolution Recipes` — 11 recipes with valid base weapon ingredients, unique result names, no self-combination
+  - `Enemy Balance` — XP reward scaling with difficulty, hallucination harmlessness, segfault one-shot design, waveMin completeness
+  - `Crit Chance` — base 10%, upgrade scaling, non-negative guarantee
+
+### Changed
+- **Test count** — 102 → 143 total unit tests across 6 test suites
+
+---
+
 ## [0.7.3] - 2026-02-12
 
 ### Fixed

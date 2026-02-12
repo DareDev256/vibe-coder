@@ -285,14 +285,14 @@ vibe-coder/
 | **Procedural maps** | Each biome generates walls, hazards, destructibles, and teleporters at runtime — no static level data |
 | **Single-source color system** | All 30 weapon colors derived from `weaponTypes`/`evolutionRecipes` — zero duplication, impossible to mismatch |
 | **Data-driven enemy spawning** | Enemy wave timing, spawn weights, and textures all live in `enemyTypes` — adding an enemy is a single line change |
-| **102 unit tests** | Core systems (SpatialHash, RunModifiers, SaveManager, EventManager, RebirthManager) tested with Vitest |
+| **143 unit tests** | Core systems + game mechanics (XP curves, stat scaling, spawn pools, weapon balance, evolution recipes) tested with Vitest |
 
 ## 🔧 Tech Stack
 
 - **Phaser 3** - Game engine
 - **Vite** - Build tool & dev server
 - **Electron** - Desktop app wrapper
-- **Vitest** - Unit testing (102 tests)
+- **Vitest** - Unit testing (143 tests)
 - **Web Audio API** - Procedural sound generation
 - **Canvas API** - Procedural graphics (no external assets!)
 - **WebSocket** - Real-time XP streaming
@@ -305,15 +305,15 @@ npm test            # Run all tests once
 npm run test:watch  # Watch mode (re-runs on file changes)
 ```
 
-102 unit tests cover core game systems: `SpatialHash`, `RunModifiers`, `SaveManager`, `EventManager`, and `RebirthManager`.
+143 unit tests across 6 test suites cover core game systems (`SpatialHash`, `RunModifiers`, `SaveManager`, `EventManager`, `RebirthManager`) and game mechanics (`GameMechanics` — XP curves, player stat scaling, spawn pools, weapon balance, evolution recipes, crit chance).
 
 ## 📋 Changelog
+
+**v0.7.4** — Added 41 unit tests for core game mechanics: XP curve validation, player stat scaling with modifier stacking, weighted spawn pool correctness, weapon balance invariants, evolution recipe integrity, crit chance formula.
 
 **v0.7.3** — Fixed 3 memory leaks: pause menu keyboard handlers stacking, weapon drop infinite tweens persisting after destroy, shrine prompt tween surviving scene shutdown.
 
 **v0.7.2** — Fixed 15 announcement texts invisible off-camera, event timer bar scale clamping, spawn pool crash guard.
-
-**v0.7.1** — Data-driven enemy spawn pool, eliminated 50-line if-chain and texture map duplication.
 
 See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
