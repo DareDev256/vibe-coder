@@ -578,7 +578,7 @@ export default class ArenaScene extends Phaser.Scene {
       const char = this.add.text(x, startY - (i * 20), chars[Phaser.Math.Between(0, chars.length - 1)], {
         fontFamily: 'monospace',
         fontSize: '14px',
-        color: `#${stage.nodeColor.toString(16).padStart(6, '0')}`
+        color: this.hexToColorStr(stage.nodeColor)
       }).setAlpha(0.1 + (i / charCount) * 0.4);
       char.setDepth(-5);
       streamGroup.add(char);
@@ -1108,43 +1108,10 @@ export default class ArenaScene extends Phaser.Scene {
     this.killsText.setText(`KILLS: ${state.kills}`);
     this.waveText.setText(`WAVE ${this.waveNumber}`);
 
-    // Update weapon text
-    const weaponColors = {
-      basic: '#00ffff',
-      spread: '#ff9900',
-      pierce: '#0099ff',
-      orbital: '#aa44ff',
-      rapid: '#ffcc00',
-      // New weapons
-      homing: '#00ff88',
-      bounce: '#88ff00',
-      aoe: '#ff4488',
-      freeze: '#88ffff',
-      // Rare weapons
-      rmrf: '#ff0000',
-      sudo: '#ffd700',
-      forkbomb: '#ff00ff',
-      // Evolved weapons
-      laserbeam: '#ff0088',
-      plasmaorb: '#00ffaa',
-      chainlightning: '#00aaff',
-      bullethell: '#ff6600',
-      ringoffire: '#ff4400',
-      seekingmissile: '#00ffcc',
-      chaosbounce: '#aaff00',
-      deathaura: '#ff00aa',
-      icelance: '#00ffff',
-      swarm: '#88ff88',
-      blizzard: '#aaffff',
-      // Melee weapons
-      sword: '#cccccc',
-      spear: '#8b4513',
-      boomerang: '#daa520',
-      kunai: '#4a4a4a'
-    };
+    // Update weapon text — colors derived from weaponTypes/evolutionRecipes (single source of truth)
     const weaponLabel = this.currentWeapon.isEvolved ? `★${this.currentWeapon.type.toUpperCase()}★` : this.currentWeapon.type.toUpperCase();
     this.weaponText.setText(`WEAPON: ${weaponLabel}`);
-    this.weaponText.setColor(weaponColors[this.currentWeapon.type] || '#00ffff');
+    this.weaponText.setColor(this.getWeaponColorStr(this.currentWeapon.type));
 
     // Update stage text
     const stage = this.stages[this.currentStage];
@@ -1173,7 +1140,7 @@ export default class ArenaScene extends Phaser.Scene {
       this.bossHealthBar.fillRect(200, 560, 400 * bossHealthPercent, 25);
 
       this.bossNameText.setText(`⚠ ${this.currentBoss.bossName} ⚠`);
-      this.bossNameText.setColor(`#${this.currentBoss.bossColor.toString(16).padStart(6, '0')}`);
+      this.bossNameText.setColor(this.hexToColorStr(this.currentBoss.bossColor));
     } else {
       this.bossHealthBarBg.setVisible(false);
       this.bossHealthBar.setVisible(false);
@@ -1294,7 +1261,7 @@ export default class ArenaScene extends Phaser.Scene {
     const modText = this.add.text(0, -10, `${mod.icon} ${mod.name}`, {
       fontFamily: 'monospace',
       fontSize: '20px',
-      color: `#${mod.color.toString(16).padStart(6, '0')}`,
+      color: this.hexToColorStr(mod.color),
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
@@ -1490,7 +1457,7 @@ export default class ArenaScene extends Phaser.Scene {
     const bossAnnounce = this.add.text(400, 150, `${bossData.name}\nHAS APPEARED!`, {
       fontFamily: 'monospace',
       fontSize: '24px',
-      color: `#${bossData.color.toString(16).padStart(6, '0')}`,
+      color: this.hexToColorStr(bossData.color),
       fontStyle: 'bold',
       align: 'center',
       stroke: '#000000',
@@ -1765,7 +1732,7 @@ export default class ArenaScene extends Phaser.Scene {
     const miniBossAnnounce = this.add.text(400, 150, `⚡ ${miniBossData.name} ⚡`, {
       fontFamily: 'monospace',
       fontSize: '20px',
-      color: `#${miniBossData.color.toString(16).padStart(6, '0')}`,
+      color: this.hexToColorStr(miniBossData.color),
       fontStyle: 'bold',
       stroke: '#000000',
       strokeThickness: 3
@@ -3043,7 +3010,7 @@ export default class ArenaScene extends Phaser.Scene {
     const evoText = this.add.text(400, 250, `⚡ WEAPON EVOLVED! ⚡\n${evolved.name}`, {
       fontFamily: 'monospace',
       fontSize: '28px',
-      color: `#${evolved.color.toString(16).padStart(6, '0')}`,
+      color: this.hexToColorStr(evolved.color),
       fontStyle: 'bold',
       align: 'center',
       stroke: '#000000',
@@ -4435,5 +4402,28 @@ export default class ArenaScene extends Phaser.Scene {
         projectile.setRotation(newAngle);
       }
     });
+  }
+
+  /**
+   * Convert a Phaser hex color (0xRRGGBB) to a CSS color string (#RRGGBB).
+   * Single source of truth for color format conversion across the codebase.
+   */
+  hexToColorStr(hex) {
+    return `#${hex.toString(16).padStart(6, '0')}`;
+  }
+
+  /**
+   * Get the CSS color string for any weapon (base, evolved, or legendary).
+   * Derives from weaponTypes and evolutionRecipes — no duplicate color map needed.
+   */
+  getWeaponColorStr(weaponType) {
+    const baseDef = this.weaponTypes[weaponType];
+    if (baseDef) return this.hexToColorStr(baseDef.color);
+
+    for (const recipe of Object.values(this.evolutionRecipes)) {
+      if (recipe.result === weaponType) return this.hexToColorStr(recipe.color);
+    }
+
+    return '#00ffff'; // fallback — basic weapon color
   }
 }

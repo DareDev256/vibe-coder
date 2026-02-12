@@ -273,6 +273,7 @@ vibe-coder/
 | **Spatial hashing** | O(n) collision detection via `SpatialHash` grid instead of O(n²) pairwise checks — handles 200+ entities at 60fps |
 | **Real-time XP pipeline** | WebSocket bridge turns any dev tool (Claude Code, IDE, CLI) into a game controller via simple HTTP POST |
 | **Procedural maps** | Each biome generates walls, hazards, destructibles, and teleporters at runtime — no static level data |
+| **Single-source color system** | All 30 weapon colors derived from `weaponTypes`/`evolutionRecipes` — zero duplication, impossible to mismatch |
 | **102 unit tests** | Core systems (SpatialHash, RunModifiers, SaveManager, EventManager, RebirthManager) tested with Vitest |
 
 ## 🔧 Tech Stack

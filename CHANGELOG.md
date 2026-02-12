@@ -2,6 +2,18 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.6.9] - 2026-02-11
+
+### Changed
+- **Weapon color single source of truth** — Eliminated 32-entry duplicate `weaponColors` map in `updateHUD()`. All weapon colors now derived from `weaponTypes` and `evolutionRecipes` definitions, making color mismatches impossible when adding weapons
+- **`hexToColorStr()` utility** — Extracted 6 repeated inline `toString(16).padStart(6, '0')` conversions into a single reusable method used by stage nodes, boss names, modifiers, boss announcements, mini-boss announcements, and evolution effects
+- **`getWeaponColorStr()` lookup** — New method resolves any weapon type (base, evolved, or legendary) to its CSS color string by walking `weaponTypes` first, then `evolutionRecipes`
+
+### Fixed
+- **Kunai HUD color mismatch** — Kunai displayed as `#4a4a4a` in the HUD but was defined as `0x2f2f2f` in `weaponTypes`. The duplicate color map had drifted. Now impossible since colors derive from the single definition
+
+---
+
 ## [0.6.8] - 2026-02-11
 
 ### Fixed
