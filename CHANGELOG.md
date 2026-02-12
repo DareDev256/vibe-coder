@@ -2,6 +2,22 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.7.0] - 2026-02-12
+
+### Added
+- **Gameplay screenshot** — Hero image (`docs/gameplay.png`) captured from live deployment showing Wave 7 with Double XP event, enemies, shrines, and procedural map
+- **Multi-CLI integration table** — Documented pre-built hooks for Claude Code, Codex, Gemini, Cursor, and generic tools with per-tool XP bonuses
+- **Immortal Mode documentation** — Added accessibility feature description to Controls section (respawn on death, 50% XP penalty)
+
+### Fixed
+- **Quote count accuracy** — Corrected "95+ unique quotes" to "75+ unique quotes" after verifying against source code (75 actual quotes across idle, coding, time-based, and CLI-specific categories)
+
+### Changed
+- **Integration section renamed** — "Claude Code Integration" → "AI Coding Tool Integration" to reflect multi-tool support
+- **Changelog summary** — Updated inline changelog to show latest 3 versions
+
+---
+
 ## [0.6.9] - 2026-02-11
 
 ### Changed

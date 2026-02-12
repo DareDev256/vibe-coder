@@ -6,6 +6,11 @@ A vampire survivors-style idle game where you earn XP from real coding activity.
 
 ![Phaser 3](https://img.shields.io/badge/Phaser-3.x-blue) ![Vite](https://img.shields.io/badge/Vite-7.x-purple) ![Electron](https://img.shields.io/badge/Electron-33.x-9feaf9) ![Node](https://img.shields.io/badge/Node-18+-green) ![Tests](https://img.shields.io/badge/Tests-102_passing-brightgreen) ![Deploy](https://img.shields.io/github/actions/workflow/status/DareDev256/vibe-coder/deploy.yml?label=Deploy) ![Play Online](https://img.shields.io/badge/Play-Online-brightgreen)
 
+<div align="center">
+  <img src="docs/gameplay.png" alt="Vibe Coder gameplay — Wave 7 with Double XP event, enemies, shrines, and procedural map" width="720">
+  <br><em>Wave 7 in Debug Zone — Double XP event active, enemies swarming, shrines waiting</em>
+</div>
+
 ## 🎯 About
 
 Vibe Coder is an idle survival game that rewards you for coding. Connect it to your development workflow and watch your character grow stronger as you write code. Every tool call, every prompt, every commit powers up your in-game character.
@@ -15,7 +20,7 @@ Vibe Coder is an idle survival game that rewards you for coding. Connect it to y
 - ⚔️ Auto-attacks with 30 weapons including 11 evolved combos
 - 🔄 Earns permanent prestige bonuses through the Rebirth system
 - 🎲 Discovers interactive shrines with risk/reward choices
-- 💬 Comments on your coding with 95+ unique quotes
+- 💬 Comments on your coding with 75+ unique quotes
 
 ### How It Works
 
@@ -177,6 +182,8 @@ Mutators applied at run start that change how you play:
 | SPACE | Manual XP (offline mode) |
 | G | Secret: Unlock Hunter's Warglaive |
 
+**Immortal Mode** — Toggle in Settings. Respawn on death instead of game over (50% XP penalty). Great for idle play while coding.
+
 ## 🚀 Quick Start
 
 ### Play Online (No Install)
@@ -215,27 +222,30 @@ npm run electron:dev    # Development mode (hot reload)
 npm run electron:build  # Build distributable
 ```
 
-## 🔌 Claude Code Integration
+## 🔌 AI Coding Tool Integration
 
-Connect Vibe Coder to Claude Code for real XP gains while coding!
+Connect Vibe Coder to your AI coding assistant for real XP gains while coding!
 
 > **Note:** The online demo doesn't support live XP (requires local server). For the full experience, run locally with hooks connected.
 
-**Quick Setup:**
+**Supported tools** — pre-built hooks included for each:
+
+| Tool | Hook Script | Bonus XP |
+|------|-------------|----------|
+| **Claude Code** | `hooks/claude-code-hook.sh` | +15 per action |
+| **Codex** | `hooks/codex-hook.sh` | +12 per action |
+| **Gemini** | `hooks/gemini-hook.sh` | +12 per action |
+| **Cursor** | `hooks/cursor-hook.sh` | +10 per action |
+| **Generic** | `hooks/vibe-coder-hook.sh` | +8 per action |
+
+**Quick Setup (Claude Code):**
 1. Clone the repo and run `npm install`
 2. Start the XP server: `npm run server`
 3. Copy `hooks/on-prompt.sh` to `~/.claude/hooks/`
 4. Start the game: `npm run dev`
-5. Code normally - XP flows into the game automatically!
+5. Code normally — XP flows into the game automatically!
 
-**[📖 Full Setup Guide](./SETUP.md)** - Detailed instructions, troubleshooting, custom integrations
-
-### Hook Events
-| Event | XP |
-|-------|-----|
-| Tool Use | +10 |
-| Response | +5 |
-| Message | +10 |
+**[📖 Full Setup Guide](./SETUP.md)** — Detailed instructions, troubleshooting, custom integrations
 
 ## 📁 Project Structure
 
@@ -298,13 +308,11 @@ npm run test:watch  # Watch mode (re-runs on file changes)
 
 ## 📋 Changelog
 
-**v0.6.8** — Fixed evolved weapons never expiring, immortal respawn invincibility race condition, invisible stage transition text, missing XP multipliers on orbital/legendary/AOE kills.
+**v0.7.0** — README hero screenshot, multi-CLI integration docs, Immortal Mode docs, quote count fix.
 
-**v0.6.7** — README accuracy pass: corrected weapon count (26→30), evolution count (10→11), added architecture diagram, Technical Highlights section, all 11 evolution recipes, deploy badge.
+**v0.6.9** — Single-source weapon color system, eliminated duplicate color map.
 
-**v0.6.6** — Fixed split enemy health, uncapped vampiric healing, missing `maxHealth`, XP server event listener memory leak.
-
-**v0.6.5** — Portfolio-grade README documenting all game systems.
+**v0.6.8** — Fixed evolved weapon expiry, respawn invincibility race, stage text, XP multipliers.
 
 See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
