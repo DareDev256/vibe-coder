@@ -2,6 +2,15 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.7.3] - 2026-02-12
+
+### Fixed
+- **Pause menu keyboard handlers accumulate** — `destroyPauseMenu()` destroyed visual elements but never called `keyboard.off()` for the 6 listeners added in `pauseGame()`. After N pauses, pressing UP/DOWN/ENTER triggered N stacked callbacks, causing erratic menu navigation and wasted CPU
+- **Weapon drop infinite tweens leak after destroy** — Weapon drops created with `createTrackedTween` (infinite pulse) were destroyed via plain `drop.destroy()` on both pickup and expiry paths, leaving orphaned tweens in `activeTweens` Set. Now uses `destroyWithTweenCleanup()` to stop tweens and remove from tracking
+- **Shrine interact prompt tween survives scene shutdown** — `ShrineManager.createInteractPrompt()` created an infinite `repeat: -1` pulse tween but never stored the reference. `destroy()` destroyed the container but the tween kept running against a dead target. Now stored as `this.promptPulseTween` and stopped in `destroy()`
+
+---
+
 ## [0.7.2] - 2026-02-12
 
 ### Fixed

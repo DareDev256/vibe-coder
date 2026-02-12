@@ -128,8 +128,8 @@ export default class ShrineManager {
 
     this.interactPrompt.add([bg, text]);
 
-    // Pulse animation
-    this.scene.tweens.add({
+    // Pulse animation — store reference for cleanup in destroy()
+    this.promptPulseTween = this.scene.tweens.add({
       targets: this.interactPrompt,
       scale: { from: 1, to: 1.1 },
       duration: 500,
@@ -644,6 +644,10 @@ export default class ShrineManager {
    */
   destroy() {
     this.clearShrines();
+    if (this.promptPulseTween) {
+      this.promptPulseTween.stop();
+      this.promptPulseTween = null;
+    }
     if (this.interactPrompt) {
       this.interactPrompt.destroy();
     }

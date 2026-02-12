@@ -2181,6 +2181,15 @@ export default class ArenaScene extends Phaser.Scene {
   }
 
   destroyPauseMenu() {
+    // Remove pause keyboard handlers to prevent accumulation on repeated pause/unpause
+    if (this.input && this.input.keyboard) {
+      this.input.keyboard.off('keydown-UP');
+      this.input.keyboard.off('keydown-DOWN');
+      this.input.keyboard.off('keydown-W');
+      this.input.keyboard.off('keydown-S');
+      this.input.keyboard.off('keydown-ENTER');
+      this.input.keyboard.off('keydown-SPACE');
+    }
     if (this.pauseMenu) {
       this.pauseMenu.destroy();
       this.pauseMenu = null;
@@ -2605,7 +2614,7 @@ export default class ArenaScene extends Phaser.Scene {
           targets: drop,
           alpha: 0,
           duration: 500,
-          onComplete: () => drop.destroy()
+          onComplete: () => this.destroyWithTweenCleanup(drop)
         });
       }
     });
@@ -2637,7 +2646,7 @@ export default class ArenaScene extends Phaser.Scene {
   pickupWeapon(player, drop) {
     const weaponType = drop.weaponType;
     const isRare = drop.isRare;
-    drop.destroy();
+    this.destroyWithTweenCleanup(drop);
 
     // Handle special rare weapon effects
     if (weaponType === 'rmrf') {

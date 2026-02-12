@@ -309,11 +309,11 @@ npm run test:watch  # Watch mode (re-runs on file changes)
 
 ## 📋 Changelog
 
+**v0.7.3** — Fixed 3 memory leaks: pause menu keyboard handlers stacking, weapon drop infinite tweens persisting after destroy, shrine prompt tween surviving scene shutdown.
+
 **v0.7.2** — Fixed 15 announcement texts invisible off-camera, event timer bar scale clamping, spawn pool crash guard.
 
 **v0.7.1** — Data-driven enemy spawn pool, eliminated 50-line if-chain and texture map duplication.
-
-**v0.7.0** — README hero screenshot, multi-CLI integration docs, Immortal Mode docs, quote count fix.
 
 See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
