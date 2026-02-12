@@ -284,6 +284,7 @@ vibe-coder/
 | **Real-time XP pipeline** | WebSocket bridge turns any dev tool (Claude Code, IDE, CLI) into a game controller via simple HTTP POST |
 | **Procedural maps** | Each biome generates walls, hazards, destructibles, and teleporters at runtime — no static level data |
 | **Single-source color system** | All 30 weapon colors derived from `weaponTypes`/`evolutionRecipes` — zero duplication, impossible to mismatch |
+| **Data-driven enemy spawning** | Enemy wave timing, spawn weights, and textures all live in `enemyTypes` — adding an enemy is a single line change |
 | **102 unit tests** | Core systems (SpatialHash, RunModifiers, SaveManager, EventManager, RebirthManager) tested with Vitest |
 
 ## 🔧 Tech Stack
@@ -308,11 +309,11 @@ npm run test:watch  # Watch mode (re-runs on file changes)
 
 ## 📋 Changelog
 
+**v0.7.1** — Data-driven enemy spawn pool, eliminated 50-line if-chain and texture map duplication.
+
 **v0.7.0** — README hero screenshot, multi-CLI integration docs, Immortal Mode docs, quote count fix.
 
 **v0.6.9** — Single-source weapon color system, eliminated duplicate color map.
-
-**v0.6.8** — Fixed evolved weapon expiry, respawn invincibility race, stage text, XP multipliers.
 
 See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 

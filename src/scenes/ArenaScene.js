@@ -152,33 +152,37 @@ export default class ArenaScene extends Phaser.Scene {
     this.shrineDamageBuff = 1;
 
     // New enemy types with unique behaviors
+    // Enemy definitions — single source of truth for stats, spawning, and textures.
+    // waveMin: wave at which enemy enters the spawn pool (0 = always available)
+    // spawnWeight: how many copies added to spawn pool (higher = more common)
+    // texture: Phaser texture key (defaults to enemy type name if omitted)
     this.enemyTypes = {
       // Original enemies
-      bug: { health: 15, speed: 40, damage: 3, xpValue: 5, behavior: 'chase' },
-      glitch: { health: 30, speed: 70, damage: 5, xpValue: 15, behavior: 'chase' },
-      'memory-leak': { health: 60, speed: 25, damage: 10, xpValue: 30, behavior: 'chase' },
-      'syntax-error': { health: 12, speed: 100, damage: 2, xpValue: 10, behavior: 'teleport', teleportCooldown: 3000 },
-      'infinite-loop': { health: 40, speed: 50, damage: 4, xpValue: 20, behavior: 'orbit', orbitRadius: 120 },
-      'race-condition': { health: 25, speed: 60, damage: 6, xpValue: 25, behavior: 'erratic', speedVariance: 80 },
+      bug: { health: 15, speed: 40, damage: 3, xpValue: 5, behavior: 'chase', waveMin: 0, spawnWeight: 3 },
+      glitch: { health: 30, speed: 70, damage: 5, xpValue: 15, behavior: 'chase', waveMin: 3, spawnWeight: 2 },
+      'memory-leak': { health: 60, speed: 25, damage: 10, xpValue: 30, behavior: 'chase', waveMin: 5 },
+      'syntax-error': { health: 12, speed: 100, damage: 2, xpValue: 10, behavior: 'teleport', teleportCooldown: 3000, waveMin: 8, spawnWeight: 2 },
+      'infinite-loop': { health: 40, speed: 50, damage: 4, xpValue: 20, behavior: 'orbit', orbitRadius: 120, waveMin: 12 },
+      'race-condition': { health: 25, speed: 60, damage: 6, xpValue: 25, behavior: 'erratic', speedVariance: 80, waveMin: 15 },
 
-      // NEW Coding-themed enemies
-      'segfault': { health: 10, speed: 0, damage: 999, xpValue: 50, behavior: 'deathzone', lifespan: 8000, waveMin: 30 },
-      'dependency-hell': { health: 80, speed: 30, damage: 6, xpValue: 80, behavior: 'spawner', spawnInterval: 3000, maxMinions: 4, waveMin: 35 },
-      'stack-overflow': { health: 100, speed: 35, damage: 8, xpValue: 100, behavior: 'grow', growRate: 0.001, waveMin: 25 },
+      // Coding-themed enemies
+      'segfault': { health: 10, speed: 0, damage: 999, xpValue: 50, behavior: 'deathzone', lifespan: 8000, waveMin: 30, texture: 'enemy-segfault' },
+      'dependency-hell': { health: 80, speed: 30, damage: 6, xpValue: 80, behavior: 'spawner', spawnInterval: 3000, maxMinions: 4, waveMin: 35, texture: 'enemy-dependency-hell' },
+      'stack-overflow': { health: 100, speed: 35, damage: 8, xpValue: 100, behavior: 'grow', growRate: 0.001, waveMin: 25, texture: 'enemy-stack-overflow' },
 
-      // NEW AI-themed enemies
-      'hallucination': { health: 1, speed: 50, damage: 0, xpValue: 1, behavior: 'fake', waveMin: 20 },
-      'token-overflow': { health: 40, speed: 45, damage: 5, xpValue: 40, behavior: 'growDamage', growRate: 0.0005, waveMin: 25 },
-      'context-loss': { health: 50, speed: 60, damage: 7, xpValue: 60, behavior: 'contextLoss', teleportCooldown: 2500, wanderChance: 0.3, waveMin: 30 },
-      'prompt-injection': { health: 60, speed: 40, damage: 5, xpValue: 100, behavior: 'hijack', hijackDuration: 5000, hijackCooldown: 10000, waveMin: 40 },
+      // AI-themed enemies
+      'hallucination': { health: 1, speed: 50, damage: 0, xpValue: 1, behavior: 'fake', waveMin: 20, spawnWeight: 2, texture: 'enemy-hallucination' },
+      'token-overflow': { health: 40, speed: 45, damage: 5, xpValue: 40, behavior: 'growDamage', growRate: 0.0005, waveMin: 25, texture: 'enemy-token-overflow' },
+      'context-loss': { health: 50, speed: 60, damage: 7, xpValue: 60, behavior: 'contextLoss', teleportCooldown: 2500, wanderChance: 0.3, waveMin: 30, texture: 'enemy-context-loss' },
+      'prompt-injection': { health: 60, speed: 40, damage: 5, xpValue: 100, behavior: 'hijack', hijackDuration: 5000, hijackCooldown: 10000, waveMin: 40, texture: 'enemy-prompt-injection' },
 
-      // NEW v2 enemies (Mixed AI + Coding)
-      '404-not-found': { health: 25, speed: 55, damage: 4, xpValue: 20, behavior: 'invisible', waveMin: 18 },
-      'cors-error': { health: 35, speed: 0, damage: 8, xpValue: 30, behavior: 'blocker', blockDuration: 5000, waveMin: 22 },
-      'type-error': { health: 30, speed: 50, damage: 5, xpValue: 25, behavior: 'morph', morphInterval: 3000, waveMin: 28 },
-      'git-conflict': { health: 45, speed: 40, damage: 4, xpValue: 35, behavior: 'split', waveMin: 32 },
-      'overfitting': { health: 50, speed: 65, damage: 6, xpValue: 45, behavior: 'predict', waveMin: 38 },
-      'mode-collapse': { health: 70, speed: 35, damage: 7, xpValue: 60, behavior: 'clone', cloneCooldown: 8000, cloneRadius: 120, waveMin: 45 }
+      // v2 enemies (Mixed AI + Coding)
+      '404-not-found': { health: 25, speed: 55, damage: 4, xpValue: 20, behavior: 'invisible', waveMin: 18, texture: 'enemy-404-not-found' },
+      'cors-error': { health: 35, speed: 0, damage: 8, xpValue: 30, behavior: 'blocker', blockDuration: 5000, waveMin: 22, texture: 'enemy-cors-error' },
+      'type-error': { health: 30, speed: 50, damage: 5, xpValue: 25, behavior: 'morph', morphInterval: 3000, waveMin: 28, texture: 'enemy-type-error' },
+      'git-conflict': { health: 45, speed: 40, damage: 4, xpValue: 35, behavior: 'split', waveMin: 32, texture: 'enemy-git-conflict' },
+      'overfitting': { health: 50, speed: 65, damage: 6, xpValue: 45, behavior: 'predict', waveMin: 38, texture: 'enemy-overfitting' },
+      'mode-collapse': { health: 70, speed: 35, damage: 7, xpValue: 60, behavior: 'clone', cloneCooldown: 8000, cloneRadius: 120, waveMin: 45, texture: 'enemy-mode-collapse' }
     };
 
     // Mini-boss definitions (appear at waves 10, 30, 50...)
@@ -1475,6 +1479,25 @@ export default class ArenaScene extends Phaser.Scene {
     this.updateHUD();
   }
 
+  /**
+   * Build weighted spawn pool from enemyTypes definitions.
+   * Each enemy appears once the current wave >= its waveMin,
+   * repeated by its spawnWeight (default 1).
+   */
+  buildSpawnPool(wave) {
+    const pool = [];
+    for (const [type, data] of Object.entries(this.enemyTypes)) {
+      const waveMin = data.waveMin ?? 0;
+      if (wave >= waveMin) {
+        const weight = data.spawnWeight ?? 1;
+        for (let i = 0; i < weight; i++) {
+          pool.push(type);
+        }
+      }
+    }
+    return pool;
+  }
+
   spawnEnemy() {
     // CAP enemies on screen to prevent overwhelming at high levels
     const MAX_ENEMIES = 30;
@@ -1495,87 +1518,12 @@ export default class ArenaScene extends Phaser.Scene {
     const playerLevel = window.VIBE_CODER.level;
     const healthScale = 1 + Math.min(playerLevel * 0.05, 2); // Cap at 3x health
 
-    // Build spawn pool based on wave progression
-    const spawnPool = ['bug', 'bug', 'bug']; // bugs always common
-
-    if (this.waveNumber >= 3) spawnPool.push('glitch', 'glitch');
-    if (this.waveNumber >= 5) spawnPool.push('memory-leak');
-
-    // New enemy types unlock at higher waves
-    if (this.waveNumber >= 8) spawnPool.push('syntax-error', 'syntax-error');
-    if (this.waveNumber >= 12) spawnPool.push('infinite-loop');
-    if (this.waveNumber >= 15) spawnPool.push('race-condition');
-
-    // NEW AI-themed enemies (wave 20+)
-    if (this.waveNumber >= 20) spawnPool.push('hallucination', 'hallucination');
-
-    // NEW enemies (wave 25+)
-    if (this.waveNumber >= 25) {
-      spawnPool.push('stack-overflow', 'token-overflow');
-    }
-
-    // NEW enemies (wave 30+)
-    if (this.waveNumber >= 30) {
-      spawnPool.push('segfault', 'context-loss');
-    }
-
-    // NEW enemies (wave 35+)
-    if (this.waveNumber >= 35) {
-      spawnPool.push('dependency-hell');
-    }
-
-    // NEW Prompt Injection (wave 40+) - rare and dangerous
-    if (this.waveNumber >= 40) {
-      spawnPool.push('prompt-injection');
-    }
-
-    // NEW v2 enemies
-    if (this.waveNumber >= 18) {
-      spawnPool.push('404-not-found');
-    }
-    if (this.waveNumber >= 22) {
-      spawnPool.push('cors-error');
-    }
-    if (this.waveNumber >= 28) {
-      spawnPool.push('type-error');
-    }
-    if (this.waveNumber >= 32) {
-      spawnPool.push('git-conflict');
-    }
-    if (this.waveNumber >= 38) {
-      spawnPool.push('overfitting');
-    }
-    if (this.waveNumber >= 45) {
-      spawnPool.push('mode-collapse');
-    }
+    // Build spawn pool from enemyTypes data (waveMin + spawnWeight)
+    const spawnPool = this.buildSpawnPool(this.waveNumber);
 
     const type = Phaser.Utils.Array.GetRandom(spawnPool);
     const typeData = this.enemyTypes[type];
-
-    // Map enemy type to texture name
-    const textureMap = {
-      'bug': 'bug',
-      'glitch': 'glitch',
-      'memory-leak': 'memory-leak',
-      'syntax-error': 'syntax-error',
-      'infinite-loop': 'infinite-loop',
-      'race-condition': 'race-condition',
-      'segfault': 'enemy-segfault',
-      'dependency-hell': 'enemy-dependency-hell',
-      'stack-overflow': 'enemy-stack-overflow',
-      'hallucination': 'enemy-hallucination',
-      'token-overflow': 'enemy-token-overflow',
-      'context-loss': 'enemy-context-loss',
-      'prompt-injection': 'enemy-prompt-injection',
-      // NEW v2 enemies
-      '404-not-found': 'enemy-404-not-found',
-      'cors-error': 'enemy-cors-error',
-      'type-error': 'enemy-type-error',
-      'git-conflict': 'enemy-git-conflict',
-      'overfitting': 'enemy-overfitting',
-      'mode-collapse': 'enemy-mode-collapse'
-    };
-    const textureName = textureMap[type] || type;
+    const textureName = typeData.texture || type;
 
     const enemy = this.enemies.create(x, y, textureName);
     enemy.health = Math.floor(typeData.health * healthScale);

@@ -2,6 +2,15 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.7.1] - 2026-02-12
+
+### Changed
+- **Data-driven enemy spawn pool** — Replaced 50-line cascading if-chain in `spawnEnemy()` with `buildSpawnPool()` method that reads `waveMin` and `spawnWeight` directly from `enemyTypes` definitions. Adding a new enemy now requires editing one line instead of three separate locations
+- **Single source of truth for enemy textures** — Eliminated 19-entry `textureMap` object by adding `texture` property to `enemyTypes`. Texture resolution now falls back to the enemy type name, matching existing convention for original enemies
+- **Consistent `waveMin` on all enemies** — Original 6 enemies (bug, glitch, memory-leak, syntax-error, infinite-loop, race-condition) now have explicit `waveMin` values instead of relying on hardcoded if-statements
+
+---
+
 ## [0.7.0] - 2026-02-12
 
 ### Added
