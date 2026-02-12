@@ -2,6 +2,21 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.7.7] - 2026-02-12
+
+### Changed
+- **README accuracy audit** — Corrected enemy count from 18 → 19 (including all Classic, Coding, and AI-themed enemies with per-category counts), updated quote count from 75+ → 90+ after auditing both TitleScene and ArenaScene quote pools
+- **Enemy type table expanded** — Each category now lists all members with specific behavior descriptions (was previously missing 7 enemies: Infinite Loop, Race Condition, Stack Overflow, 404, CORS Error, Type Error, Token Overflow, Context Loss, Overfitting)
+- **Speech bubble quote table** — New section documenting all 5 quote categories: Combat (20), Coding Activity (20), Time-of-Day (17), CLI-Specific (10), Title Screen (20+)
+- **Credits** — Added DareDev256 GitHub link
+
+### Added
+- **LICENSE file** — MIT license file in repo root (was declared in package.json but missing from filesystem, preventing GitHub license badge detection)
+- **License badge** — Added MIT license shield to badge row
+- **License section** — New section linking to LICENSE file
+
+---
+
 ## [0.7.6] - 2026-02-12
 
 ### Added

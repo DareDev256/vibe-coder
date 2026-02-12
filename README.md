@@ -4,7 +4,7 @@ A vampire survivors-style idle game where you earn XP from real coding activity.
 
 ### [▶️ Play Now](https://daredev256.github.io/vibe-coder/) | [⬇️ Download Desktop App](#-desktop-app) | [📖 Setup Guide](./SETUP.md) | [📋 Changelog](./CHANGELOG.md)
 
-![Phaser 3](https://img.shields.io/badge/Phaser-3.x-blue) ![Vite](https://img.shields.io/badge/Vite-7.x-purple) ![Electron](https://img.shields.io/badge/Electron-33.x-9feaf9) ![Node](https://img.shields.io/badge/Node-18+-green) ![Tests](https://img.shields.io/badge/Tests-240_passing-brightgreen) ![Deploy](https://img.shields.io/github/actions/workflow/status/DareDev256/vibe-coder/deploy.yml?label=Deploy) ![Play Online](https://img.shields.io/badge/Play-Online-brightgreen)
+![Phaser 3](https://img.shields.io/badge/Phaser-3.x-blue) ![Vite](https://img.shields.io/badge/Vite-7.x-purple) ![Electron](https://img.shields.io/badge/Electron-33.x-9feaf9) ![Node](https://img.shields.io/badge/Node-18+-green) ![Tests](https://img.shields.io/badge/Tests-240_passing-brightgreen) ![Deploy](https://img.shields.io/github/actions/workflow/status/DareDev256/vibe-coder/deploy.yml?label=Deploy) ![Play Online](https://img.shields.io/badge/Play-Online-brightgreen) ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 <div align="center">
   <img src="docs/gameplay.png" alt="Vibe Coder gameplay — Wave 7 with Double XP event, enemies, shrines, and procedural map" width="720">
@@ -20,7 +20,18 @@ Vibe Coder is an idle survival game that rewards you for coding. Connect it to y
 - ⚔️ Auto-attacks with 30 weapons including 11 evolved combos
 - 🔄 Earns permanent prestige bonuses through the Rebirth system
 - 🎲 Discovers interactive shrines with risk/reward choices
-- 💬 Comments on your coding with 75+ unique quotes
+- 💬 Comments on your coding with 90+ unique quotes
+
+### 💬 90+ Speech Bubble Quotes
+Your character reacts to everything with contextual commentary:
+
+| Category | Examples |
+|----------|----------|
+| **Combat** (20) | "Target acquired!", "Tactical retreat", "*stretches*" |
+| **Coding Activity** (20) | "Code go brrrr", "Ship it ship it!", "We cooking rn" |
+| **Time-of-Day** (17) | "3am coding hits different", "Saturday deploy? Bold move" |
+| **CLI-Specific** (10) | "Claude cooking!", "Codex in the house!", "Cursor flow!" |
+| **Title Screen** (20+) | "Bugs fear me", "npm install *infinite*", "ALL HAIL DareDev256" |
 
 ### How It Works
 
@@ -32,7 +43,7 @@ Vibe Coder is an idle survival game that rewards you for coding. Connect it to y
 │          │              │    ▼                          │
 │ IDE      │──HTTP POST──▶│  Game Engine (Phaser 3)      │
 │ Terminal │              │    ├─ Auto-Play AI            │
-│ etc.     │              │    ├─ 18 Enemy Types + Bosses │
+│ etc.     │              │    ├─ 19 Enemy Types + Bosses │
 └──────────┘              │    ├─ Weapon Evolution        │
                           │    └─ Prestige System         │
                           └──────────────────────────────┘
@@ -46,12 +57,12 @@ Vibe Coder is an idle survival game that rewards you for coding. Connect it to y
 - **IDLE Mode** 😴 - Gentle wander toward center when area is clear
 - Mode-specific speech bubbles and visual indicators
 
-### 👾 18 Enemy Types
+### 👾 19 Enemy Types
 | Type | Examples | Unique Behaviors |
 |------|----------|-----------------|
-| **Classic** | Bug, Glitch, Memory Leak, Syntax Error | Teleporting, orbiting, erratic speed |
-| **Coding** | Segfault, Dependency Hell, Git Conflict | Instant-kill zones, minion spawning, splitting |
-| **AI-Themed** | Hallucination, Prompt Injection, Mode Collapse | Fake enemies, movement hijacking, self-cloning |
+| **Classic** (6) | Bug, Glitch, Memory Leak, Syntax Error, Infinite Loop, Race Condition | Teleporting, orbiting, erratic speed |
+| **Coding** (7) | Segfault, Dependency Hell, Git Conflict, Stack Overflow, 404, CORS Error, Type Error | Instant-kill zones, minion spawning, splitting, invisibility, shape-shifting |
+| **AI-Themed** (6) | Hallucination, Prompt Injection, Mode Collapse, Token Overflow, Context Loss, Overfitting | Fake enemies, movement hijacking, self-cloning, movement prediction |
 
 ### 👹 4 Epic Bosses + Mini-Boss
 | Boss | Wave | Special Ability |
@@ -309,11 +320,11 @@ npm run test:watch  # Watch mode (re-runs on file changes)
 
 ## 📋 Changelog
 
-**v0.7.6** — Added 47 combat edge-case tests targeting bug-prone formulas from recent fix history: health scaling caps, boss tier boundaries, fork bomb damage decay, git-conflict split stats, vampiric healing, wave XP multiplier stacking, spawn count capping, negative-wave spawn pool guard.
+**v0.7.7** — README accuracy audit: corrected enemy count (18→19), quote count (75+→90+), added LICENSE file, expanded enemy table with all 19 types, new speech bubble quote categories section.
 
-**v0.7.5** — Added 50 unit tests: 31 ShrineManager tests (shrine definitions, gamble weight distribution, chaos effects, cost logic, buff multiplier), 19 SaveManager persistence tests (save/load lifecycle, 24h expiry, corrupted JSON recovery, summary).
+**v0.7.6** — Added 47 combat edge-case tests targeting bug-prone formulas: health scaling caps, boss tier boundaries, fork bomb damage decay, git-conflict split stats, vampiric healing, wave XP multiplier stacking, spawn count capping.
 
-**v0.7.4** — Added 41 unit tests for core game mechanics: XP curve validation, player stat scaling with modifier stacking, weighted spawn pool correctness, weapon balance invariants, evolution recipe integrity, crit chance formula.
+**v0.7.5** — Added 50 unit tests: 31 ShrineManager tests (shrine definitions, gamble weight distribution, chaos effects, cost logic), 19 SaveManager persistence tests (save/load lifecycle, 24h expiry, corrupted JSON recovery).
 
 **v0.7.3** — Fixed 3 memory leaks: pause menu keyboard handlers stacking, weapon drop infinite tweens persisting after destroy, shrine prompt tween surviving scene shutdown.
 
@@ -321,9 +332,13 @@ npm run test:watch  # Watch mode (re-runs on file changes)
 
 See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
+## 📄 License
+
+[MIT](./LICENSE) — fork it, mod it, ship it.
+
 ## 🎨 Credits
 
-Built with [Claude Code](https://claude.ai/claude-code) - the AI coding assistant.
+Built with [Claude Code](https://claude.ai/claude-code) by [DareDev256](https://github.com/DareDev256).
 
 Hunter's Warglaive artwork inspired by Luu.
 
