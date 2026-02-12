@@ -634,7 +634,7 @@ export default class ArenaScene extends Phaser.Scene {
       align: 'center',
       stroke: '#000000',
       strokeThickness: 6
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setScrollFactor(0);
 
     this.tweens.add({
       targets: stageText,
@@ -1943,8 +1943,10 @@ export default class ArenaScene extends Phaser.Scene {
 
         // Check death
         if (enemy.health <= 0) {
-          window.VIBE_CODER.addXP(enemy.xpValue);
+          const xpMult = (this.xpEventMultiplier || 1) * (this.modifierEffects?.xpMult || 1);
+          window.VIBE_CODER.addXP(Math.floor(enemy.xpValue * xpMult));
           window.VIBE_CODER.kills++;
+          if (Math.random() < 0.1) this.spawnWeaponDrop(enemy.x, enemy.y);
           enemy.destroy();
           this.updateHUD();
         }
@@ -2805,8 +2807,8 @@ export default class ArenaScene extends Phaser.Scene {
 
     // Start weapon timer (tracked for cleanup)
     this.weaponExpiryTimer = this.time.delayedCall(this.currentWeapon.duration, () => {
-      // Revert to basic if still using this weapon
-      if (this.currentWeapon.type === weaponType) {
+      // Revert to basic if still using this weapon (compare evolved type, not pre-evolution)
+      if (this.currentWeapon.type === finalWeaponType) {
         this.currentWeapon = { type: 'basic', duration: Infinity };
         this.clearOrbitals();
         this.weaponExpiryTimer = null;
@@ -3181,7 +3183,8 @@ export default class ArenaScene extends Phaser.Scene {
           });
 
           if (enemy.health <= 0) {
-            window.VIBE_CODER.addXP(enemy.xpValue);
+            const xpMult = (this.xpEventMultiplier || 1) * (this.modifierEffects?.xpMult || 1);
+            window.VIBE_CODER.addXP(Math.floor(enemy.xpValue * xpMult));
             window.VIBE_CODER.kills++;
             if (Math.random() < 0.1) this.spawnWeaponDrop(enemy.x, enemy.y);
             enemy.destroy();
@@ -3306,7 +3309,8 @@ export default class ArenaScene extends Phaser.Scene {
               // Check for legendary drop (super rare)
               this.checkLegendaryDrop(enemy.x, enemy.y);
 
-              window.VIBE_CODER.addXP(enemy.xpValue);
+              const xpMult = (this.xpEventMultiplier || 1) * (this.modifierEffects?.xpMult || 1);
+              window.VIBE_CODER.addXP(Math.floor(enemy.xpValue * xpMult));
               window.VIBE_CODER.kills++;
               if (Math.random() < 0.15) this.spawnWeaponDrop(enemy.x, enemy.y);
               enemy.destroy();
@@ -3643,9 +3647,10 @@ export default class ArenaScene extends Phaser.Scene {
     // Become invincible for a bit
     this.invincible = true;
 
-    // Flash red/white cycle to show i-frames
+    // Flash red/white cycle to show i-frames (stored on this for cleanup)
+    if (this.iFrameFlashTimer) this.iFrameFlashTimer.destroy();
     let flashCount = 0;
-    const flashTimer = this.time.addEvent({
+    this.iFrameFlashTimer = this.time.addEvent({
       delay: 100,
       callback: () => {
         flashCount++;
@@ -3653,10 +3658,10 @@ export default class ArenaScene extends Phaser.Scene {
         if (flashCount >= 10) {
           player.setAlpha(1);
           this.invincible = false;
-          flashTimer.destroy();
+          this.iFrameFlashTimer = null;
         }
       },
-      loop: true
+      repeat: 9
     });
 
     // Screen shake
@@ -3830,6 +3835,13 @@ export default class ArenaScene extends Phaser.Scene {
           enemy.y += Math.sin(angle) * 200;
         }
       });
+
+      // Cancel any stale i-frame flash timer from playerHit() to prevent it
+      // from overwriting respawn invincibility
+      if (this.iFrameFlashTimer) {
+        this.iFrameFlashTimer.destroy();
+        this.iFrameFlashTimer = null;
+      }
 
       // Brief invincibility
       this.invincible = true;

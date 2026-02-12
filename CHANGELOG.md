@@ -2,6 +2,17 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.6.8] - 2026-02-11
+
+### Fixed
+- **Evolved weapons never expired** — Weapon expiry timer compared the pre-evolution weapon type instead of the final evolved type, so evolved weapons (Laser Beam, Plasma Orb, etc.) became permanent until replaced
+- **Immortal respawn invincibility cut short** — The i-frame flash timer from `playerHit()` was stored as a local variable and continued running after death, overwriting the 2-second immortal respawn invincibility after only ~1 second
+- **Stage transition text invisible** — "ENTERING [stage name]" text was placed at world coordinates (400, 200) without `setScrollFactor(0)`, making it off-screen unless the player happened to be near the top-left corner
+- **Missing XP multipliers on alternate kill paths** — Orbital weapon kills, legendary weapon kills, and AOE blast kills all bypassed XP event/modifier multipliers, giving raw un-multiplied XP during Double XP events
+- **AOE blast kills dropped no weapon pickups** — Unlike projectile and legendary kills, AOE blast enemy deaths never called `spawnWeaponDrop()`, removing a loot source
+
+---
+
 ## [0.6.7] - 2026-02-11
 
 ### Changed

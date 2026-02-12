@@ -297,6 +297,8 @@ npm run test:watch  # Watch mode (re-runs on file changes)
 
 ## 📋 Changelog
 
+**v0.6.8** — Fixed evolved weapons never expiring, immortal respawn invincibility race condition, invisible stage transition text, missing XP multipliers on orbital/legendary/AOE kills.
+
 **v0.6.7** — README accuracy pass: corrected weapon count (26→30), evolution count (10→11), added architecture diagram, Technical Highlights section, all 11 evolution recipes, deploy badge.
 
 **v0.6.6** — Fixed split enemy health, uncapped vampiric healing, missing `maxHealth`, XP server event listener memory leak.
