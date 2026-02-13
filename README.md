@@ -296,6 +296,7 @@ vibe-coder/
 | **Procedural maps** | Each biome generates walls, hazards, destructibles, and teleporters at runtime — no static level data |
 | **Single-source color system** | All 30 weapon colors derived from `weaponTypes`/`evolutionRecipes` — zero duplication, impossible to mismatch |
 | **Data-driven enemy spawning** | Enemy wave timing, spawn weights, and textures all live in `enemyTypes` — adding an enemy is a single line change |
+| **Hardened XP servers** | All HTTP endpoints validate input against strict allowlists, enforce body size limits, and set security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) |
 | **240 unit tests** | Core systems + game mechanics + shrine data + save lifecycle tested with Vitest |
 
 ## 🔧 Tech Stack
@@ -319,6 +320,8 @@ npm run test:watch  # Watch mode (re-runs on file changes)
 240 unit tests across 8 test suites cover core game systems (`SpatialHash`, `RunModifiers`, `SaveManager`, `EventManager`, `RebirthManager`, `ShrineManager`), game mechanics (`GameMechanics` — XP curves, player stat scaling, spawn pools, weapon balance, evolution recipes, crit chance), and combat edge cases (`CombatEdgeCases` — health scaling caps, boss tier selection, crit pipeline, fork bomb decay, git-conflict splits, vampiric healing, wave XP stacking, spawn capping).
 
 ## 📋 Changelog
+
+**v0.7.8** — Security hardening: input validation with allowlists on all XP server endpoints, request body size limits, security headers, CORS restriction, .gitignore hardened for secrets, 4 npm dependency vulnerabilities patched.
 
 **v0.7.7** — README accuracy audit: corrected enemy count (18→19), quote count (75+→90+), added LICENSE file, expanded enemy table with all 19 types, new speech bubble quote categories section.
 

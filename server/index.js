@@ -1,9 +1,11 @@
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
+import { validateEvent, securityHeaders, VALID_SOURCES, MAX_BODY_SIZE } from './validation.js';
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: MAX_BODY_SIZE }));
+app.use(securityHeaders);
 
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
@@ -66,47 +68,38 @@ const CLI_SOURCES = {
 
 // API endpoint for hooks to call
 app.post('/event', (req, res) => {
-  const { type, data, source } = req.body;
+  const result = validateEvent(req.body);
+  if (!result.valid) {
+    return res.status(400).json({ error: result.error });
+  }
 
-  // Determine XP amount based on type and source
+  const { type, source, toolName } = result;
   let xpAmount = XP_VALUES[type] || 5;
 
   // CLI-specific XP values
-  if (source === 'claude') {
-    xpAmount = XP_VALUES.claude_code || xpAmount;
-  } else if (source === 'codex') {
-    xpAmount = XP_VALUES.codex_cli || xpAmount;
-  } else if (source === 'gemini') {
-    xpAmount = XP_VALUES.gemini_cli || xpAmount;
-  } else if (source === 'cursor') {
-    xpAmount = XP_VALUES.cursor_ai || xpAmount;
-  } else if (source === 'copilot') {
-    xpAmount = XP_VALUES.copilot || xpAmount;
-  }
+  if (source === 'claude') xpAmount = XP_VALUES.claude_code || xpAmount;
+  else if (source === 'codex') xpAmount = XP_VALUES.codex_cli || xpAmount;
+  else if (source === 'gemini') xpAmount = XP_VALUES.gemini_cli || xpAmount;
+  else if (source === 'cursor') xpAmount = XP_VALUES.cursor_ai || xpAmount;
+  else if (source === 'copilot') xpAmount = XP_VALUES.copilot || xpAmount;
 
   // Bonus XP for certain actions
-  if (type === 'tool_use' && data?.tool) {
-    if (data.tool.includes('Edit') || data.tool.includes('Write')) {
-      xpAmount = 15; // Code changes = more XP
-    }
-    if (data.tool.includes('Bash')) {
-      xpAmount = 10; // Running commands
-    }
+  if (type === 'tool_use' && toolName) {
+    if (toolName.includes('Edit') || toolName.includes('Write')) xpAmount = 15;
+    if (toolName.includes('Bash')) xpAmount = 10;
   }
 
-  broadcastXP(type, xpAmount, source || 'unknown');
-  res.json({ success: true, xp: xpAmount, source: source || 'unknown' });
+  broadcastXP(type, xpAmount, source);
+  res.json({ success: true, xp: xpAmount, source });
 });
 
 // CLI-specific endpoints for easier integration
 app.post('/cli/:source', (req, res) => {
   const { source } = req.params;
-  const { action, data } = req.body;
-
-  // Validate source
-  if (!CLI_SOURCES[source]) {
-    return res.status(400).json({ error: 'Unknown CLI source', validSources: Object.keys(CLI_SOURCES) });
+  if (!VALID_SOURCES.has(source) || !CLI_SOURCES[source]) {
+    return res.status(400).json({ error: 'Unknown CLI source' });
   }
+  const { action } = req.body;
 
   // Get XP based on source
   const xpKey = `${source}_code` in XP_VALUES ? `${source}_code` :

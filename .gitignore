@@ -2,3 +2,13 @@ node_modules/
 dist/
 .DS_Store
 *.log
+
+# Secrets & credentials — never commit these
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json

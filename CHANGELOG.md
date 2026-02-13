@@ -2,6 +2,19 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.7.8] - 2026-02-12
+
+### Security
+- **Input validation hardened** — All 3 XP server variants (`server/index.js`, `electron/server.js`, `xp-server.js`) now validate event type and source against strict allowlists, rejecting unknown values with 400 errors
+- **Request body size limits** — Express servers limited to 1KB payloads via `express.json({ limit })`. Standalone `xp-server.js` enforces byte-level cap on raw request body, preventing memory exhaustion DoS
+- **Security headers added** — All HTTP responses now include `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and `Referrer-Policy: no-referrer`
+- **CORS restricted** — `xp-server.js` changed from wildcard `*` origin to `http://localhost:5173` only
+- **Shared validation module** — New `server/validation.js` provides `validateEvent()`, `securityHeaders()`, and `getSecureHeaders()` used by all server variants
+- **.gitignore hardened** — Added `.env`, `.env.*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `credentials.json`, `secrets.json` exclusion patterns
+- **npm audit fix** — Patched 4 non-breaking dependency vulnerabilities (axios, lodash, qs, brace-expansion). 10 remaining are in dev-only build tooling (electron-builder/tar chain) requiring major version bumps
+
+---
+
 ## [0.7.7] - 2026-02-12
 
 ### Changed
