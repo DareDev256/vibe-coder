@@ -2,6 +2,14 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.7.9] - 2026-02-13
+
+### Fixed
+- **Test stderr noise causing false failures** — Error-handling tests in SaveManager and RebirthManager leaked `console.error` output to stderr (`Failed to save run: Error`, `SyntaxError`), which automated agents (Passion Agent) misinterpreted as test failures. Now mocked with `vi.spyOn(console, 'error')` and asserted for correctness
+- **CI deploys without running tests** — Deploy workflow (`deploy.yml`) ran `npm ci` + `npm run build` but never ran `npm test`, allowing broken code to reach production. Added test step before build
+
+---
+
 ## [0.7.8] - 2026-02-12
 
 ### Security

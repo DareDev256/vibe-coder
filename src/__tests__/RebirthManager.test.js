@@ -67,9 +67,12 @@ describe('RebirthManager', () => {
     });
 
     it('returns defaults on corrupted JSON', () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
       store[RebirthManager.STORAGE_KEY] = '{broken';
       const data = RebirthManager.load();
       expect(data.rebirthLevel).toBe(0);
+      expect(spy).toHaveBeenCalledWith('Failed to load rebirth data:', expect.any(SyntaxError));
+      spy.mockRestore();
     });
   });
 

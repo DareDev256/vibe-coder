@@ -122,10 +122,13 @@ describe('SaveManager', () => {
       });
 
       it('returns false when localStorage throws', () => {
+        const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
         localStorage.setItem.mockImplementation(() => {
           throw new Error('QuotaExceededError');
         });
         expect(SaveManager.saveRun(validRunData())).toBe(false);
+        expect(spy).toHaveBeenCalledWith('Failed to save run:', expect.any(Error));
+        spy.mockRestore();
       });
     });
 
@@ -156,8 +159,11 @@ describe('SaveManager', () => {
       });
 
       it('returns null for corrupted JSON', () => {
+        const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
         store['vibeCoderRunSave'] = '{invalid json!!!';
         expect(SaveManager.loadRun()).toBeNull();
+        expect(spy).toHaveBeenCalledWith('Failed to load run:', expect.any(SyntaxError));
+        spy.mockRestore();
       });
     });
 
