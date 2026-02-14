@@ -2,6 +2,13 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.10.0] - 2026-02-14
+
+### Changed
+- **ComboSystem extracted from ArenaScene** — Kill streak tracking, combo HUD rendering, tier escalation (COMBO → ON FIRE → RAMPAGE → UNSTOPPABLE → GODLIKE), milestone popups, and streak decay logic moved from ArenaScene (4632 → 4483 lines) into new `src/systems/ComboSystem.js` (195 lines). Tier thresholds and milestone definitions extracted to module-level constants (`TIERS`, `MILESTONES`) for testability. ArenaScene now delegates via `this.comboSystem.registerKill()` / `.checkDecay()` / `.getBestStreak()`
+
+---
+
 ## [0.9.0] - 2026-02-14
 
 ### Added

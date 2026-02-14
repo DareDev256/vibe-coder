@@ -290,6 +290,7 @@ vibe-coder/
 │   │   ├── TitleScene.js      # Menu, upgrades, weapon gallery
 │   │   └── ArenaScene.js      # Main gameplay, enemies, bosses
 │   ├── systems/
+│   │   ├── ComboSystem.js     # Kill streak tracking & combo HUD
 │   │   ├── EventManager.js    # Mid-wave random events
 │   │   ├── MapManager.js      # Procedural map generation & biomes
 │   │   ├── RebirthManager.js  # Prestige system (permanent bonuses)
@@ -341,11 +342,11 @@ npm run test:watch  # Watch mode (re-runs on file changes)
 
 ## 📋 Changelog
 
+**v0.10.0** — Extracted ComboSystem from ArenaScene monolith (4632 → 4483 lines). Kill streak tracking, tier escalation, milestone popups, and combo HUD now live in dedicated `ComboSystem.js` module with exported constants for testability.
+
 **v0.9.0** — Kill Streak Combo System: on-screen combo counter with 5-tier visual escalation (COMBO → ON FIRE → RAMPAGE → UNSTOPPABLE → GODLIKE), pulse animations, milestone popups at 10x/25x/50x/100x, 3-second decay timer, best streak on Game Over screen.
 
 **v0.8.0** — Game Over Stats Screen: full run recap overlay on death showing wave, time survived, kills, level, weapons found, stage, and BITS earned with breakdown. NEW RECORD badge for high wave beats. Gameplay freezes during overlay.
-
-**v0.7.9** — Fixed test stderr noise that caused Passion Agent false failures (console.error leaking from error-path tests), added CI test gate to deploy workflow.
 
 **v0.7.5** — Added 50 unit tests: 31 ShrineManager tests (shrine definitions, gamble weight distribution, chaos effects, cost logic), 19 SaveManager persistence tests (save/load lifecycle, 24h expiry, corrupted JSON recovery).
 
