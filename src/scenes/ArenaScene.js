@@ -217,6 +217,9 @@ export default class ArenaScene extends Phaser.Scene {
     // Collected weapon types for evolution
     this.collectedWeapons = new Set(['basic']);
 
+    // Run timer for stats screen
+    this.runStartTime = Date.now();
+
     // High score tracking
     this.highScore = parseInt(localStorage.getItem('vibeCoderHighScore') || '0');
     this.highWave = parseInt(localStorage.getItem('vibeCoderHighWave') || '0');
@@ -2232,6 +2235,7 @@ export default class ArenaScene extends Phaser.Scene {
     this.invincible = false;
     this.collectedWeapons = new Set(['basic']);
     this.currentWeapon = { type: 'basic', duration: Infinity };
+    this.runStartTime = Date.now();
     this.clearOrbitals();
 
     // Reset VIBE_CODER state
@@ -3637,29 +3641,121 @@ export default class ArenaScene extends Phaser.Scene {
 
     window.VIBE_UPGRADES.addCurrency(totalBits);
 
-    // Show bits earned (fixed to camera center)
-    const bitsText = this.add.text(400, 200, `+${totalBits} BITS EARNED!`, {
-      fontFamily: 'monospace',
-      fontSize: '24px',
-      color: '#00ffff',
-      fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 4
-    }).setOrigin(0.5).setScrollFactor(0);
+    // Pause gameplay while stats screen is shown
+    this.physics.pause();
+    if (this.waveTimer) this.waveTimer.paused = true;
 
-    this.tweens.add({
-      targets: bitsText,
-      y: bitsText.y - 50,
-      alpha: 0,
-      duration: 2000,
-      onComplete: () => bitsText.destroy()
+    // Calculate run duration
+    const runSeconds = Math.floor((Date.now() - this.runStartTime) / 1000);
+    const runMin = Math.floor(runSeconds / 60);
+    const runSec = runSeconds % 60;
+    const timeStr = runMin > 0 ? `${runMin}m ${runSec}s` : `${runSec}s`;
+
+    // Build stats overlay
+    const cx = 400, cy = 300;
+    const statsElements = [];
+
+    // Dark backdrop
+    const bg = this.add.rectangle(cx, cy, 460, 380, 0x000000, 0.88)
+      .setScrollFactor(0).setDepth(9999);
+    statsElements.push(bg);
+
+    // Border
+    const border = this.add.rectangle(cx, cy, 460, 380)
+      .setStrokeStyle(2, 0x00ffff).setScrollFactor(0).setDepth(9999);
+    statsElements.push(border);
+
+    // Title
+    const title = this.add.text(cx, cy - 160, 'RUN OVER', {
+      fontFamily: 'monospace', fontSize: '28px', color: '#ff4444',
+      fontStyle: 'bold', stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10000);
+    statsElements.push(title);
+
+    // New high wave badge
+    if (isNewHighWave) {
+      const badge = this.add.text(cx, cy - 132, 'NEW RECORD!', {
+        fontFamily: 'monospace', fontSize: '14px', color: '#ffd700', fontStyle: 'bold'
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(10000);
+      statsElements.push(badge);
+    }
+
+    // Stat lines
+    const weaponCount = this.collectedWeapons.size;
+    const stageName = this.stages[this.currentStage]?.name || 'Debug Zone';
+    const lines = [
+      { label: 'WAVE REACHED', value: `${this.waveNumber}`, color: '#ffffff' },
+      { label: 'TIME SURVIVED', value: timeStr, color: '#88ffff' },
+      { label: 'ENEMIES KILLED', value: `${state.kills}`, color: '#ff8888' },
+      { label: 'LEVEL REACHED', value: `${state.level}`, color: '#88ff88' },
+      { label: 'WEAPONS FOUND', value: `${weaponCount}`, color: '#ffaa44' },
+      { label: 'STAGE', value: stageName, color: '#cc88ff' },
+    ];
+
+    const startY = cy - 100;
+    lines.forEach((line, i) => {
+      const y = startY + i * 30;
+      const lbl = this.add.text(cx - 190, y, line.label, {
+        fontFamily: 'monospace', fontSize: '14px', color: '#999999'
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(10000);
+      const val = this.add.text(cx + 190, y, line.value, {
+        fontFamily: 'monospace', fontSize: '14px', color: line.color, fontStyle: 'bold'
+      }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(10000);
+      statsElements.push(lbl, val);
     });
 
-    // Game over - respawn
-    this.cameras.main.fade(500, 0, 0, 0);
+    // Divider line
+    const divY = startY + lines.length * 30 + 5;
+    const divider = this.add.rectangle(cx, divY, 380, 1, 0x444444)
+      .setScrollFactor(0).setDepth(10000);
+    statsElements.push(divider);
 
-    this.time.delayedCall(500, () => {
-      // Reset player to world center
+    // BITS breakdown
+    const bitsY = divY + 22;
+    const bitsTitle = this.add.text(cx, bitsY, `+${totalBits} BITS`, {
+      fontFamily: 'monospace', fontSize: '20px', color: '#00ffff', fontStyle: 'bold'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10000);
+    statsElements.push(bitsTitle);
+
+    const breakdown = `${waveBits} wave + ${killBits} kills + ${xpBits} xp`;
+    const bitsDetail = this.add.text(cx, bitsY + 22, breakdown, {
+      fontFamily: 'monospace', fontSize: '11px', color: '#666666'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10000);
+    statsElements.push(bitsDetail);
+
+    // Continue prompt
+    const prompt = this.add.text(cx, cy + 158, 'PRESS ANY KEY TO CONTINUE', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#555555'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10000);
+    statsElements.push(prompt);
+
+    // Pulse the prompt text
+    const promptTween = this.tweens.add({
+      targets: prompt, alpha: 0.3, duration: 800, yoyo: true, repeat: -1
+    });
+
+    // Dismiss handler — any key or auto after 8s
+    const dismiss = () => {
+      if (dismissed) return;
+      dismissed = true;
+      promptTween.stop();
+      this.input.keyboard.off('keydown', dismiss);
+      statsElements.forEach(el => el.destroy());
+      this.respawnAfterGameOver(isNewHighWave);
+    };
+    let dismissed = false;
+    this.input.keyboard.on('keydown', dismiss);
+    this.time.delayedCall(8000, dismiss);
+  }
+
+  /**
+   * Respawn the player after game over stats screen is dismissed
+   */
+  respawnAfterGameOver(isNewHighWave) {
+    this.cameras.main.fade(400, 0, 0, 0);
+
+    this.time.delayedCall(400, () => {
+      // Reset player
       this.player.health = this.player.maxHealth;
       this.player.x = this.worldWidth / 2;
       this.player.y = this.worldHeight / 2;
@@ -3670,6 +3766,7 @@ export default class ArenaScene extends Phaser.Scene {
       // Reset wave
       this.waveNumber = 1;
       this.currentStage = 0;
+      this.runStartTime = Date.now();
       this.createBackground();
 
       // Reset collected weapons
@@ -3677,32 +3774,14 @@ export default class ArenaScene extends Phaser.Scene {
       this.currentWeapon = { type: 'basic', duration: Infinity };
       this.clearOrbitals();
 
-      // Clear saved run (player died, starting fresh)
+      // Clear saved run
       SaveManager.clearSave();
 
+      // Resume physics
+      this.physics.resume();
+
       // Fade back in
-      this.cameras.main.fadeIn(500);
-
-      // Show respawn text with high score info
-      let respawnMessage = 'RESPAWNED';
-      if (isNewHighWave) {
-        respawnMessage = `NEW HIGH WAVE: ${this.highWave}!\nRESPAWNED`;
-      }
-
-      const respawnText = this.add.text(400, 300, respawnMessage, {
-        fontFamily: 'monospace',
-        fontSize: isNewHighWave ? '28px' : '32px',
-        color: isNewHighWave ? '#ffd700' : '#00ffff',
-        fontStyle: 'bold',
-        align: 'center'
-      }).setOrigin(0.5).setScrollFactor(0);
-
-      this.tweens.add({
-        targets: respawnText,
-        alpha: 0,
-        duration: 2000,
-        onComplete: () => respawnText.destroy()
-      });
+      this.cameras.main.fadeIn(400);
 
       // Restart spawning
       this.startWave();

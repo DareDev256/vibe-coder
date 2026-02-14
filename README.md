@@ -177,6 +177,13 @@ Mutators applied at run start that change how you play:
 | **Protection** 🛡️ | Current weapon | 10s invincibility |
 | **Chaos** 🌀 | 10% HP | Random: Double XP, Speed, Invincibility, Enemy Freeze, Curse, or Boss |
 
+### 📊 Game Over Stats Screen
+On death, a full run recap overlay shows your performance before respawning:
+- **Wave Reached** / **Time Survived** / **Enemies Killed** / **Level** / **Weapons Found** / **Stage**
+- BITS earned with breakdown (wave + kills + xp bonuses)
+- **NEW RECORD** badge when you beat your high wave
+- Press any key to continue, or auto-dismisses after 8s
+
 ### 💾 Save & Continue
 - Auto-saves at wave completion
 - **CONTINUE** option on title screen with "Wave X, Stage Y, Xm ago" summary
@@ -321,11 +328,11 @@ npm run test:watch  # Watch mode (re-runs on file changes)
 
 ## 📋 Changelog
 
+**v0.8.0** — Game Over Stats Screen: full run recap overlay on death showing wave, time survived, kills, level, weapons found, stage, and BITS earned with breakdown. NEW RECORD badge for high wave beats. Gameplay freezes during overlay.
+
 **v0.7.9** — Fixed test stderr noise that caused Passion Agent false failures (console.error leaking from error-path tests), added CI test gate to deploy workflow.
 
 **v0.7.8** — Security hardening: input validation with allowlists on all XP server endpoints, request body size limits, security headers, CORS restriction, .gitignore hardened for secrets, 4 npm dependency vulnerabilities patched.
-
-**v0.7.7** — README accuracy audit: corrected enemy count (18→19), quote count (75+→90+), added LICENSE file, expanded enemy table with all 19 types, new speech bubble quote categories section.
 
 **v0.7.5** — Added 50 unit tests: 31 ShrineManager tests (shrine definitions, gamble weight distribution, chaos effects, cost logic), 19 SaveManager persistence tests (save/load lifecycle, 24h expiry, corrupted JSON recovery).
 

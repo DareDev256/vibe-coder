@@ -2,6 +2,13 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.8.0] - 2026-02-13
+
+### Added
+- **Game Over Stats Screen** — Full run recap overlay shown on death before respawning. Displays wave reached, time survived, enemies killed, level reached, weapons found, current stage, and BITS earned with breakdown (wave + kills + xp). Press any key to dismiss or auto-continues after 8 seconds. NEW RECORD badge shown when beating your high wave. Gameplay freezes during the overlay so no cheap deaths while reading stats
+
+---
+
 ## [0.7.9] - 2026-02-13
 
 ### Fixed
