@@ -4,7 +4,7 @@ A vampire survivors-style idle game where you earn XP from real coding activity.
 
 ### [▶️ Play Now](https://daredev256.github.io/vibe-coder/) | [⬇️ Download Desktop App](#-desktop-app) | [📖 Setup Guide](./SETUP.md) | [📋 Changelog](./CHANGELOG.md)
 
-![Phaser 3](https://img.shields.io/badge/Phaser-3.x-blue) ![Vite](https://img.shields.io/badge/Vite-7.x-purple) ![Electron](https://img.shields.io/badge/Electron-33.x-9feaf9) ![Node](https://img.shields.io/badge/Node-18+-green) ![Tests](https://img.shields.io/badge/Tests-240_passing-brightgreen) ![Deploy](https://img.shields.io/github/actions/workflow/status/DareDev256/vibe-coder/deploy.yml?label=Deploy) ![Play Online](https://img.shields.io/badge/Play-Online-brightgreen) ![License](https://img.shields.io/badge/License-MIT-yellow)
+![Phaser 3](https://img.shields.io/badge/Phaser-3.x-blue) ![Vite](https://img.shields.io/badge/Vite-7.x-purple) ![Electron](https://img.shields.io/badge/Electron-33.x-9feaf9) ![Node](https://img.shields.io/badge/Node-18+-green) ![Tests](https://img.shields.io/badge/Tests-279_passing-brightgreen) ![Deploy](https://img.shields.io/github/actions/workflow/status/DareDev256/vibe-coder/deploy.yml?label=Deploy) ![Play Online](https://img.shields.io/badge/Play-Online-brightgreen) ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 <div align="center">
   <img src="docs/gameplay.png" alt="Vibe Coder gameplay — Wave 7 with Double XP event, enemies, shrines, and procedural map" width="720">
@@ -284,7 +284,7 @@ Connect Vibe Coder to your AI coding assistant for real XP gains while coding!
 vibe-coder/
 ├── src/
 │   ├── main.js               # Game config, upgrades, legendaries
-│   ├── __tests__/             # Vitest unit tests (240 tests)
+│   ├── __tests__/             # Vitest unit tests (279 tests)
 │   ├── scenes/
 │   │   ├── BootScene.js       # Procedural texture generation
 │   │   ├── TitleScene.js      # Menu, upgrades, weapon gallery
@@ -318,14 +318,14 @@ vibe-coder/
 | **Single-source color system** | All 30 weapon colors derived from `weaponTypes`/`evolutionRecipes` — zero duplication, impossible to mismatch |
 | **Data-driven enemy spawning** | Enemy wave timing, spawn weights, and textures all live in `enemyTypes` — adding an enemy is a single line change |
 | **Hardened XP servers** | All HTTP endpoints validate input against strict allowlists, enforce body size limits, and set security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) |
-| **240 unit tests** | Core systems + game mechanics + shrine data + save lifecycle tested with Vitest |
+| **279 tests** | Core systems, game mechanics, combat edge cases, and cross-system integration tested with Vitest |
 
 ## 🔧 Tech Stack
 
 - **Phaser 3** - Game engine
 - **Vite** - Build tool & dev server
 - **Electron** - Desktop app wrapper
-- **Vitest** - Unit testing (240 tests)
+- **Vitest** - Unit testing (279 tests)
 - **Web Audio API** - Procedural sound generation
 - **Canvas API** - Procedural graphics (no external assets!)
 - **WebSocket** - Real-time XP streaming
@@ -338,9 +338,11 @@ npm test            # Run all tests once
 npm run test:watch  # Watch mode (re-runs on file changes)
 ```
 
-240 unit tests across 8 test suites cover core game systems (`SpatialHash`, `RunModifiers`, `SaveManager`, `EventManager`, `RebirthManager`, `ShrineManager`), game mechanics (`GameMechanics` — XP curves, player stat scaling, spawn pools, weapon balance, evolution recipes, crit chance), and combat edge cases (`CombatEdgeCases` — health scaling caps, boss tier selection, crit pipeline, fork bomb decay, git-conflict splits, vampiric healing, wave XP stacking, spawn capping).
+279 tests across 9 test suites cover core game systems (`SpatialHash`, `RunModifiers`, `SaveManager`, `EventManager`, `RebirthManager`, `ShrineManager`), game mechanics (`GameMechanics` — XP curves, player stat scaling, spawn pools, weapon balance, evolution recipes, crit chance), combat edge cases (`CombatEdgeCases` — health scaling caps, boss tier selection, crit pipeline, fork bomb decay, git-conflict splits, vampiric healing, wave XP stacking, spawn capping), and cross-system integration (`GameLoopIntegration` — weapon→enemy damage pipeline, fork bomb chains, git-conflict splits, player hit + vampiric healing, wave completion XP, combo tier escalation, weapon evolution consistency, boss scaling).
 
 ## 📋 Changelog
+
+**v0.10.1** — 39 integration tests for weapon→enemy damage pipeline, fork bomb chains, git-conflict splits, vampiric healing, wave completion XP, combo tier escalation, weapon evolution, and boss scaling. Test count: 240 → 279 across 9 suites.
 
 **v0.10.0** — Extracted ComboSystem from ArenaScene monolith (4632 → 4483 lines). Kill streak tracking, tier escalation, milestone popups, and combo HUD now live in dedicated `ComboSystem.js` module with exported constants for testability.
 

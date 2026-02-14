@@ -2,6 +2,24 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.10.1] - 2026-02-14
+
+### Added
+- **39 GameLoopIntegration tests** — New integration test suite validating cross-system interactions that unit tests miss:
+  - `Weapon → Enemy Damage Pipeline` — pierce/non-pierce destruction, crit determinism, XP multiplier compounding, sudo god-mode passthrough, segfault one-shot invariant
+  - `Fork Bomb Chain Integration` — 3-generation damage decay (100→70→49), depth-2 cap enforcement, isChild guard preventing infinite forks
+  - `Git-Conflict Split Enemy Pipeline` — parent death spawns 2 non-splittable children, child stat formulas, anti-XP-farming check (parent+children < 2x parent)
+  - `Player Hit + Vampiric Integration` — invincibility bypass, vampiric heal 10% with maxHealth cap, dead enemy no-heal, hallucination zero-damage, segfault instant-kill
+  - `Wave Completion + Boss Wave XP` — boss wave 20-interval detection, Double XP event stacking, compound multiplier flooring
+  - `Full Kill-to-Combo Pipeline` — tier escalation (COMBO→ON FIRE→RAMPAGE→GODLIKE), 3s decay reset, bestStreak preservation, timer refresh on kill
+  - `Weapon Evolution Consistency` — all recipes use distinct base weapons, evolved damage exceeds weakest ingredient, unique results
+  - `Boss Spawn Health Scaling` — wave-scaled health, strictly harder progression, XP reward scaling across tiers
+
+### Changed
+- **Test count** — 240 → 279 total unit tests across 9 test suites
+
+---
+
 ## [0.10.0] - 2026-02-14
 
 ### Changed
