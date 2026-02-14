@@ -326,6 +326,13 @@ export default class ArenaScene extends Phaser.Scene {
     // Create HUD
     this.createHUD();
 
+    // Kill streak tracking
+    this.killStreak = 0;
+    this.lastKillTime = 0;
+    this.streakDecayMs = 3000; // 3s without kills resets streak
+    this.bestStreak = 0;
+    this.shownMilestones = new Set();
+
     // Handle continued game - restore saved state before starting wave
     if (this.isContinuedGame) {
       const savedRun = SaveManager.loadRun();
@@ -1070,6 +1077,24 @@ export default class ArenaScene extends Phaser.Scene {
       fontSize: '10px',
       color: '#888888'
     }).setScrollFactor(0);
+
+    // Kill streak combo display (hidden until first kill)
+    this.comboText = this.add.text(400, 95, '', {
+      fontFamily: 'monospace',
+      fontSize: '22px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5).setScrollFactor(0).setAlpha(0).setDepth(100);
+
+    this.comboLabel = this.add.text(400, 115, '', {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      color: '#888888',
+      stroke: '#000000',
+      strokeThickness: 2
+    }).setOrigin(0.5).setScrollFactor(0).setAlpha(0).setDepth(100);
 
     // Boss health bar (hidden by default)
     this.bossHealthBarBg = this.add.graphics();
@@ -1865,6 +1890,7 @@ export default class ArenaScene extends Phaser.Scene {
           const xpMult = (this.xpEventMultiplier || 1) * (this.modifierEffects?.xpMult || 1);
           window.VIBE_CODER.addXP(Math.floor(enemy.xpValue * xpMult));
           window.VIBE_CODER.kills++;
+      this.registerKill();
           if (Math.random() < 0.1) this.spawnWeaponDrop(enemy.x, enemy.y);
           enemy.destroy();
           this.updateHUD();
@@ -2242,7 +2268,7 @@ export default class ArenaScene extends Phaser.Scene {
     window.VIBE_CODER.xp = 0;
     window.VIBE_CODER.level = 1;
     window.VIBE_CODER.kills = 0;
-    window.VIBE_CODER.streak = 1;
+    window.VIBE_CODER.streak = 0;
 
     // Clear saved run (fresh restart)
     SaveManager.clearSave();
@@ -2796,6 +2822,7 @@ export default class ArenaScene extends Phaser.Scene {
       const xpMult = (this.xpEventMultiplier || 1) * (this.modifierEffects?.xpMult || 1);
       window.VIBE_CODER.addXP(Math.floor(enemy.xpValue * xpMult));
       window.VIBE_CODER.kills++;
+      this.registerKill();
 
       // Death particle
       for (let i = 0; i < 3; i++) {
@@ -3052,6 +3079,7 @@ export default class ArenaScene extends Phaser.Scene {
               // Award XP for magnetized enemies
               window.VIBE_CODER.addXP(Math.floor(enemy.xpValue * 0.5));
               window.VIBE_CODER.kills++;
+      this.registerKill();
 
               // Death effect
               const particle = this.add.circle(enemy.x, enemy.y, 15, 0x00ffff, 0.8);
@@ -3115,6 +3143,7 @@ export default class ArenaScene extends Phaser.Scene {
             const xpMult = (this.xpEventMultiplier || 1) * (this.modifierEffects?.xpMult || 1);
             window.VIBE_CODER.addXP(Math.floor(enemy.xpValue * xpMult));
             window.VIBE_CODER.kills++;
+      this.registerKill();
             if (Math.random() < 0.1) this.spawnWeaponDrop(enemy.x, enemy.y);
             enemy.destroy();
             this.updateHUD();
@@ -3153,6 +3182,137 @@ export default class ArenaScene extends Phaser.Scene {
       ease: 'Power2',
       onComplete: () => dmgText.destroy()
     });
+  }
+
+  // === KILL STREAK COMBO SYSTEM ===
+
+  registerKill() {
+    const now = Date.now();
+    this.killStreak++;
+    this.lastKillTime = now;
+    window.VIBE_CODER.streak = this.killStreak;
+
+    if (this.killStreak > this.bestStreak) {
+      this.bestStreak = this.killStreak;
+    }
+
+    // Update combo HUD
+    this.updateComboDisplay();
+
+    // Check milestones: 10, 25, 50, 100
+    const milestones = [
+      { threshold: 10, label: 'KILL STREAK!', color: '#00ff88' },
+      { threshold: 25, label: 'RAMPAGE!', color: '#ffaa00' },
+      { threshold: 50, label: 'UNSTOPPABLE!', color: '#ff4444' },
+      { threshold: 100, label: 'G O D L I K E', color: '#ff00ff' }
+    ];
+
+    for (const m of milestones) {
+      if (this.killStreak === m.threshold && !this.shownMilestones.has(m.threshold)) {
+        this.shownMilestones.add(m.threshold);
+        this.showStreakMilestone(m.label, m.color, m.threshold);
+        break;
+      }
+    }
+  }
+
+  updateComboDisplay() {
+    if (!this.comboText || !this.comboLabel) return;
+
+    if (this.killStreak < 3) {
+      this.comboText.setAlpha(0);
+      this.comboLabel.setAlpha(0);
+      return;
+    }
+
+    // Color escalation: white → cyan → yellow → orange → red → magenta
+    let color = '#ffffff';
+    let label = 'COMBO';
+    if (this.killStreak >= 100) { color = '#ff00ff'; label = 'GODLIKE'; }
+    else if (this.killStreak >= 50) { color = '#ff4444'; label = 'UNSTOPPABLE'; }
+    else if (this.killStreak >= 25) { color = '#ffaa00'; label = 'RAMPAGE'; }
+    else if (this.killStreak >= 10) { color = '#ffff00'; label = 'ON FIRE'; }
+    else if (this.killStreak >= 5) { color = '#00ffff'; label = 'COMBO'; }
+
+    this.comboText.setText(`${this.killStreak}x`);
+    this.comboText.setColor(color);
+    this.comboText.setAlpha(1);
+    this.comboLabel.setText(label);
+    this.comboLabel.setColor(color);
+    this.comboLabel.setAlpha(0.7);
+
+    // Pulse animation on each kill
+    if (this.comboPulseTween) this.comboPulseTween.stop();
+    this.comboText.setScale(1.3);
+    this.comboPulseTween = this.tweens.add({
+      targets: this.comboText,
+      scale: 1,
+      duration: 200,
+      ease: 'Back.easeOut'
+    });
+  }
+
+  showStreakMilestone(label, color, count) {
+    // Center-screen milestone popup
+    const milestone = this.add.text(400, 200, `⚡ ${count}x ${label} ⚡`, {
+      fontFamily: 'monospace',
+      fontSize: '28px',
+      color: color,
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 5
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(200).setScale(0.5).setAlpha(0);
+
+    // Punch-in animation
+    this.tweens.add({
+      targets: milestone,
+      scale: 1.2,
+      alpha: 1,
+      duration: 300,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: milestone,
+          scale: 1,
+          duration: 150,
+          onComplete: () => {
+            this.tweens.add({
+              targets: milestone,
+              y: 180,
+              alpha: 0,
+              duration: 1200,
+              delay: 800,
+              ease: 'Power2',
+              onComplete: () => milestone.destroy()
+            });
+          }
+        });
+      }
+    });
+
+    // Screen shake scaled to milestone
+    const intensity = Math.min(0.005 + count * 0.0002, 0.02);
+    this.cameras.main.shake(200, intensity);
+
+    // Audio feedback
+    Audio.playLevelUp();
+  }
+
+  checkStreakDecay() {
+    if (this.killStreak > 0 && Date.now() - this.lastKillTime > this.streakDecayMs) {
+      this.killStreak = 0;
+      window.VIBE_CODER.streak = 0;
+      this.shownMilestones.clear();
+      // Fade out combo display
+      if (this.comboText?.alpha > 0) {
+        this.tweens.add({
+          targets: [this.comboText, this.comboLabel],
+          alpha: 0,
+          duration: 400,
+          ease: 'Power2'
+        });
+      }
+    }
   }
 
   // === LEGENDARY WEAPONS ===
@@ -3241,6 +3401,7 @@ export default class ArenaScene extends Phaser.Scene {
               const xpMult = (this.xpEventMultiplier || 1) * (this.modifierEffects?.xpMult || 1);
               window.VIBE_CODER.addXP(Math.floor(enemy.xpValue * xpMult));
               window.VIBE_CODER.kills++;
+      this.registerKill();
               if (Math.random() < 0.15) this.spawnWeaponDrop(enemy.x, enemy.y);
               enemy.destroy();
               this.updateHUD();
@@ -3401,6 +3562,7 @@ export default class ArenaScene extends Phaser.Scene {
       const xpMult = (this.xpEventMultiplier || 1) * (this.modifierEffects?.xpMult || 1);
       window.VIBE_CODER.addXP(Math.floor(enemy.xpValue * xpMult));
       window.VIBE_CODER.kills++;
+      this.registerKill();
 
       // GIT CONFLICT: Split into 2 smaller enemies on death
       if (enemy.behavior === 'split' && enemy.canSplit) {
@@ -3690,6 +3852,7 @@ export default class ArenaScene extends Phaser.Scene {
       { label: 'LEVEL REACHED', value: `${state.level}`, color: '#88ff88' },
       { label: 'WEAPONS FOUND', value: `${weaponCount}`, color: '#ffaa44' },
       { label: 'STAGE', value: stageName, color: '#cc88ff' },
+      { label: 'BEST STREAK', value: `${this.bestStreak}x`, color: '#ff00ff' },
     ];
 
     const startY = cy - 100;
@@ -3880,6 +4043,9 @@ export default class ArenaScene extends Phaser.Scene {
 
   update() {
     if (!this.player || !this.player.active) return;
+
+    // Kill streak decay check
+    this.checkStreakDecay();
 
     // Handle movement
     const stats = this.getStats();

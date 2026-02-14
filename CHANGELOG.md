@@ -2,6 +2,13 @@
 
 All notable changes to Vibe Coder will be documented in this file.
 
+## [0.9.0] - 2026-02-14
+
+### Added
+- **Kill Streak Combo System** — On-screen combo counter tracks consecutive kills with a 3-second decay timer. Visual escalation through 5 tiers: COMBO (5+, cyan), ON FIRE (10+, yellow), RAMPAGE (25+, orange), UNSTOPPABLE (50+, red), GODLIKE (100+, magenta). Pulse animation on each kill, milestone popups with punch-in animation at 10x/25x/50x/100x streaks, screen shake scaled to milestone tier. Best streak tracked and displayed on Game Over stats screen. Combo HUD centered top of screen, auto-hides when streak drops below 3
+
+---
+
 ## [0.8.0] - 2026-02-13
 
 ### Added

@@ -57,6 +57,19 @@ Your character reacts to everything with contextual commentary:
 - **IDLE Mode** 😴 - Gentle wander toward center when area is clear
 - Mode-specific speech bubbles and visual indicators
 
+### 🔥 Kill Streak Combos
+Rack up consecutive kills to build your combo — 3 seconds without a kill resets it:
+
+| Streak | Tier | Color |
+|--------|------|-------|
+| 5+ | COMBO | Cyan |
+| 10+ | ON FIRE | Yellow |
+| 25+ | RAMPAGE | Orange |
+| 50+ | UNSTOPPABLE | Red |
+| 100+ | GODLIKE | Magenta |
+
+Milestone popups at 10x, 25x, 50x, 100x with screen shake and audio. Best streak shown on Game Over.
+
 ### 👾 19 Enemy Types
 | Type | Examples | Unique Behaviors |
 |------|----------|-----------------|
@@ -328,11 +341,11 @@ npm run test:watch  # Watch mode (re-runs on file changes)
 
 ## 📋 Changelog
 
+**v0.9.0** — Kill Streak Combo System: on-screen combo counter with 5-tier visual escalation (COMBO → ON FIRE → RAMPAGE → UNSTOPPABLE → GODLIKE), pulse animations, milestone popups at 10x/25x/50x/100x, 3-second decay timer, best streak on Game Over screen.
+
 **v0.8.0** — Game Over Stats Screen: full run recap overlay on death showing wave, time survived, kills, level, weapons found, stage, and BITS earned with breakdown. NEW RECORD badge for high wave beats. Gameplay freezes during overlay.
 
 **v0.7.9** — Fixed test stderr noise that caused Passion Agent false failures (console.error leaking from error-path tests), added CI test gate to deploy workflow.
-
-**v0.7.8** — Security hardening: input validation with allowlists on all XP server endpoints, request body size limits, security headers, CORS restriction, .gitignore hardened for secrets, 4 npm dependency vulnerabilities patched.
 
 **v0.7.5** — Added 50 unit tests: 31 ShrineManager tests (shrine definitions, gamble weight distribution, chaos effects, cost logic), 19 SaveManager persistence tests (save/load lifecycle, 24h expiry, corrupted JSON recovery).
 
